@@ -25,7 +25,8 @@ app.get('/', (req, res) => {
 
 
 
-// Codigo para manejar las tablas
+////////////////// Codigo para manejar las tablas //////////////////
+
 // Ruta para obtener todos los estados (ACTIVO e INACTIVO)
 app.get('/estados', async (req, res) => {
   try {
