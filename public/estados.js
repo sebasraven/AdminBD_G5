@@ -1,128 +1,110 @@
 const API_URL = 'http://localhost:3000/estados';
 
-// Cargar estados al cargar la página
+// Cargar estados al iniciar
 const loadStates = async () => {
     const tableBody = document.getElementById('stateTableBody');
-    tableBody.innerHTML = ''; // Limpiar la tabla antes de cargar los datos
+    if (!tableBody) {
+        console.error("No se encontró el cuerpo de la tabla.");
+        return;
+    }
+    tableBody.innerHTML = '';  // Limpiar la tabla antes de agregar nuevas filas
+
     try {
-        const response = await axios.get(API_URL); // Obtener datos de la API
-        response.data.forEach(state => {
-            const row = document.createElement('tr');
-            row.setAttribute('data-id', state[0]); // ID oculto (posición 0)
+        const response = await axios.get(API_URL);
+        console.log('Respuesta recibida:', response.data);
 
-            // Acceder a los elementos por índice
-            const nombreEstado = state[1] || 'Sin nombre';
-            const descripcion = state[2] || 'Sin descripción';
-            const notas = state[3] || '';
+        if (Array.isArray(response.data)) {
+            response.data.forEach(state => {
+                console.log(state);
+                const [id_estado, nombre_estado, descripcion, notas, creado_por, fecha_creacion, modificado_por, fecha_modificacion, accion] = state;
 
-            // Construcción de la fila
-            row.innerHTML = `
-                <td>${nombreEstado}</td>
-                <td>${descripcion}</td>
-                <td>${notas}</td>
-                <td>
-                    <button class="btn btn-warning btn-sm btn-edit">Editar</button>
-                </td>
-            `;
-            tableBody.appendChild(row);
-        });
-
-        // Agregar manejadores de eventos para botones
-        document.querySelectorAll('.btn-edit').forEach(button => {
-            button.addEventListener('click', handleEdit);
-        });
-
-        //document.querySelectorAll('.btn-inactivate').forEach(button => {
-        // button.addEventListener('click', handleInactivate);
-        //});
-
-    } catch (error) {
-        console.error('Error al cargar los estados:', error);
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                        <td>${nombre_estado}</td>
+                        <td>${descripcion}</td>
+                        <td>${notas}</td>
+                        <td>${creado_por}</td>
+                        <td>${fecha_creacion}</td>
+                        <td>${modificado_por}</td>
+                        <td>${fecha_modificacion}</td>
+                        <td>${accion}</td>
+                        <td>
+                            <button class="btn btn-warning btn-sm" onclick="editState(${id_estado}, '${nombre_estado}', '${descripcion}', '${notas}')">Editar</button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteState(${id_estado})">Eliminar</button>
+                        </td>
+                    `;
+                tableBody.appendChild(row);
+            });
+        } else {
+            console.error('Los datos recibidos no son un array:', response.data);
+        }
+    } catch (err) {
+        console.error('Error al cargar los estados:', err);
     }
 };
 
-// Función para manejar la edición de un estado
-const handleEdit = async (event) => {
-    const row = event.target.closest('tr');
-    const stateId = row.getAttribute('data-id'); // Obtener el ID del estado
-
-    try {
-        // Obtener los datos del estado desde la API
-        const response = await axios.get(`${API_URL}/${stateId}`);
-        const state = response.data;
-
-        // Rellenar los campos del modal con los datos del estado
-        document.getElementById('stateId').value = state[0]; // ID del estado
-        document.getElementById('addName').value = state[1]; // Nombre
-        document.getElementById('addDescription').value = state[2]; // Descripción
-        document.getElementById('addNotes').value = state[3] || ''; // Notas
-
-        // Cambiar el título del modal a "Editar Estado"
-        document.getElementById('addStateModalLabel').textContent = 'Editar Estado';
-
-        // Mostrar el modal
-        new bootstrap.Modal(document.getElementById('addStateModal')).show();
-
-    } catch (error) {
-        console.error('Error al cargar los datos del estado:', error);
-    }
-};
-
-// Función para manejar la actualización del estado
-const handleUpdate = async (event) => {
-    event.preventDefault();
-
-    const stateId = document.getElementById('stateId').value;
-    const name = document.getElementById('addName').value;
-    const description = document.getElementById('addDescription').value;
-    const notes = document.getElementById('addNotes').value;
-
-    try {
-        await axios.put(`${API_URL}/${stateId}`, {
-            descripcion: description,
-            notas: notes
-        });
-        alert('Estado actualizado con éxito');
-        loadStates();
-        addStateForm.reset();
-
-        // Cerrar el modal
-        const modal = bootstrap.Modal.getInstance(document.getElementById('addStateModal'));
-        modal.hide();
-    } catch (error) {
-        console.error('Error al actualizar el estado:', error);
-        alert('Error al actualizar el estado');
-    }
-};
-
-// Agregar un nuevo estado
-/*
+// Manejar formulario de agregar/editar estado
 const addStateForm = document.getElementById('addStateForm');
-addStateForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const name = document.getElementById('addName').value;
-    const description = document.getElementById('addDescription').value;
-    const notes = document.getElementById('addNotes').value;
+if (addStateForm) {
+    addStateForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
 
+        const stateId = document.getElementById('stateId').value;
+        const nombre_estado = document.getElementById('addName').value;
+        const descripcion = document.getElementById('addDescription').value;
+        const notas = document.getElementById('addNotes').value;
+
+        try {
+            if (stateId) {
+                // Actualizar estado existente
+                await axios.put(`${API_URL}/${stateId}`, { nombre_estado, descripcion, notas });
+            } else {
+                // Crear un nuevo estado
+                await axios.post(API_URL, {
+                    nombre_estado,
+                    descripcion,
+                    notas,
+                    creado_por: 'PRUEBAS', // Usuario fijo
+                    accion: 'INSERT',
+                });
+            }
+
+            // Resetear el formulario y cerrar el modal
+            addStateForm.reset();
+            new bootstrap.Modal(document.getElementById('addStateModal')).hide();
+
+            // Recargar la lista de estados
+            loadStates();
+        } catch (err) {
+            console.error('Error al guardar el estado:', err.response ? err.response.data : err);
+        }
+    });
+} else {
+    console.error('No se encontró el formulario de agregar estado.');
+}
+
+// Editar estado
+const editState = (id_estado, nombre, descripcion, notas) => {
+    document.getElementById('stateId').value = id_estado;
+    document.getElementById('addName').value = nombre;
+    document.getElementById('addDescription').value = descripcion;
+    document.getElementById('addNotes').value = notas;
+
+    new bootstrap.Modal(document.getElementById('addStateModal')).show();
+};
+
+// Eliminar estado
+const deleteState = async (id_estado) => {
     try {
-        await axios.post(API_URL, {
-            nombre_estado: name,
-            descripcion: description,
-            notas: notes
-        });
-        alert('Estado agregado con éxito');
+        const response = await axios.delete(`${API_URL}/${id_estado}`);
+        console.log('Estado eliminado:', response.data);  // Verifica la respuesta
         loadStates();
-        addStateForm.reset();
-        new bootstrap.Modal(document.getElementById('addStateModal')).hide();
-    } catch (error) {
-        console.error('Error al agregar el estado:', error);
-        alert('Error al agregar el estado');
+    } catch (err) {
+        console.error('Error al eliminar el estado:', err.response ? err.response.data : err);
     }
-});
-*/
+};
 
-// Inicializar estados
+// Inicializar carga de estados
 document.addEventListener('DOMContentLoaded', loadStates);
 
-// Asignar la función de actualización al formulario de edición
-addStateForm.addEventListener('submit', handleUpdate);
+

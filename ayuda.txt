@@ -1,0 +1,2 @@
+Hacer: node app.js
+en la terminal para correr el servidor, luego entrar a http://localhost:3000/

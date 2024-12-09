@@ -23,112 +23,96 @@ app.get('/', (req, res) => {
 });
 
 
-
-
 ////////////////// Codigo para manejar las tablas //////////////////
 
-// Ruta para obtener todos los estados (ACTIVO e INACTIVO)
+// Obtener todos los estados
 app.get('/estados', async (req, res) => {
+  let connection;
   try {
-    const connection = await oracledb.getConnection(dbConfig);
-    const result = await connection.execute(
-      `SELECT * FROM FIDE_ESTADOS_TB`
-    );
-    await connection.close();
+    connection = await oracledb.getConnection(dbConfig);
+
+    // Realizar la consulta principal después de establecer la conexión
+    const result = await connection.execute('SELECT id_estado, nombre_estado, descripcion, notas, creado_por, fecha_creacion, modificado_por, fecha_modificacion, accion FROM FIDE_ESTADOS_TB');
+    
+    // Verifica los datos obtenidos
+    console.log('Me esta llegando esto');
+    console.log(result.rows); // Verifica los datos
+
     res.json(result.rows);
-  } catch (error) {
-    console.error(error);
+  } catch (err) {
+    console.error('Error de conexión o consulta:', err);
     res.status(500).send('Error al obtener los estados');
-  }
-});
-
-// Ruta para obtener un estado específico por ID
-app.get('/estados/:id', async (req, res) => {
-  const { id } = req.params;
-  try {
-    const connection = await oracledb.getConnection(dbConfig);
-    const result = await connection.execute(
-      `SELECT * FROM FIDE_ESTADOS_TB WHERE ESTADOS_ID_ESTADO_PK = :id`,
-      [id]
-    );
-    await connection.close();
-    if (result.rows.length === 0) {
-      res.status(404).send('Estado no encontrado');
-    } else {
-      res.json(result.rows[0]);
+  } finally {
+    // Asegúrate de cerrar la conexión al final
+    if (connection) {
+      try {
+        await connection.close();
+      } catch (closeErr) {
+        console.error('Error al cerrar la conexión:', closeErr);
+      }
     }
-  } catch (error) {
-    console.error(error);
-    res.status(500).send('Error al obtener el estado');
   }
 });
 
-// Ruta para crear un nuevo estado
+
+// Insertar un estado mediante procedimiento almacenado
 app.post('/estados', async (req, res) => {
   const { nombre_estado, descripcion, notas } = req.body;
-
-  // Validación: evitar duplicar los valores ACTIVO o INACTIVO
-  if (['ACTIVO', 'INACTIVO'].includes(nombre_estado.toUpperCase())) {
-    return res.status(400).send('El estado ya existe.');
-  }
-
+  console.log('Recibiendo datos para agregar:', req.body); // Depuración
   try {
     const connection = await oracledb.getConnection(dbConfig);
+    console.log(nombre_estado, descripcion, notas); // Verifica si los valores son correctos
     await connection.execute(
-      `INSERT INTO FIDE_ESTADOS_TB (ESTADOS_ID_ESTADO_PK, NOMBRE_ESTADO, DESCRIPCION, NOTAS)
-       VALUES (FIDE_ESTADOS_SEQ.NEXTVAL, :nombre_estado, :descripcion, :notas)`,
+      `BEGIN FIDE_ESTADOS_TB_INSERT_SP(:nombre_estado, :descripcion, :notas); END;`,
       { nombre_estado, descripcion, notas },
       { autoCommit: true }
     );
     await connection.close();
-    res.status(201).send('Estado creado con éxito');
-  } catch (error) {
-    console.error(error);
-    res.status(500).send('Error al crear el estado');
+    res.send('Estado agregado correctamente');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error al agregar el estado');
   }
 });
 
-// Ruta para actualizar un estado existente
-app.put('/estados/:id', async (req, res) => {
-  const { id } = req.params;
-  const { descripcion, notas } = req.body;
+// Actualizar un estado
+app.put('/estados/:id_estado', async (req, res) => {
+  const { id_estado } = req.params;
+  const { nombre_estado, descripcion, notas } = req.body;
 
   try {
     const connection = await oracledb.getConnection(dbConfig);
-    const result = await connection.execute(
-      `UPDATE FIDE_ESTADOS_TB
-       SET DESCRIPCION = :descripcion, NOTAS = :notas
-       WHERE ESTADOS_ID_ESTADO_PK = :id`,
-      { descripcion, notas, id },
+    await connection.execute(
+      `UPDATE FIDE_ESTADOS_TB SET nombre_estado = :nombre_estado, descripcion = :descripcion, notas = :notas WHERE id_estado = :id_estado`,
+      { id_estado, nombre_estado, descripcion, notas },
       { autoCommit: true }
     );
     await connection.close();
-    if (result.rowsAffected === 0) {
-      res.status(404).send('Estado no encontrado');
-    } else {
-      res.send('Estado actualizado con éxito');
-    }
-  } catch (error) {
-    console.error(error);
+
+    res.send('Estado actualizado correctamente');
+  } catch (err) {
+    console.error(err);
     res.status(500).send('Error al actualizar el estado');
   }
 });
 
-// Ruta para eliminar (lógicamente) un estado (esto sería muy raro en tu caso)
-app.delete('/estados/:id', async (req, res) => {
-  const { id } = req.params;
+// Eliminar un estado
+app.delete('/estados/:id_estado', async (req, res) => {
+  const { id_estado } = req.params;
 
-  // Prevención: No deberíamos eliminar "ACTIVO" o "INACTIVO"
-  return res.status(403).send('No se permite eliminar los estados ACTIVO o INACTIVO.');
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+    await connection.execute(`DELETE FROM FIDE_ESTADOS_TB WHERE id_estado = :id_estado`, { id_estado }, { autoCommit: true });
+    await connection.close();
+
+    res.send('Estado eliminado correctamente');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error al eliminar el estado');
+  }
 });
-
-
-
 
 // Arrancar el servidor, esto va al final
 app.listen(port, () => {
   console.log(`Servidor escuchando en el puerto ${port}`);
 });
-
-// Para correr la vara hacer en la terminal: node app.js
-// Entrar a localhost:3000
