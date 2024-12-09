@@ -25,6 +25,7 @@ app.get('/', (req, res) => {
 
 ////////////////// Codigo para manejar las tablas //////////////////
 
+//ESTADO
 // Obtener todos los estados
 app.get('/estados', async (req, res) => {
   let connection;
@@ -33,10 +34,6 @@ app.get('/estados', async (req, res) => {
 
     // Realizar la consulta principal después de establecer la conexión
     const result = await connection.execute('SELECT id_estado, nombre_estado, descripcion, notas, creado_por, fecha_creacion, modificado_por, fecha_modificacion, accion FROM FIDE_ESTADOS_TB');
-    
-    // Verifica los datos obtenidos
-    console.log('Me esta llegando esto');
-    console.log(result.rows); // Verifica los datos
 
     res.json(result.rows);
   } catch (err) {
@@ -111,6 +108,117 @@ app.delete('/estados/:id_estado', async (req, res) => {
     res.status(500).send('Error al eliminar el estado');
   }
 });
+
+
+
+//NACIONALIDAD
+app.get('/nacionalidad', async (req, res) => {
+  let connection;
+  try {
+    connection = await oracledb.getConnection(dbConfig);
+
+    // Consulta para obtener los datos incluyendo el nombre del estado
+    const query = `
+      SELECT 
+        F.id_nacionalidad, 
+        F.descripcion, 
+        E.nombre_estado, 
+        F.creado_por, 
+        F.fecha_creacion, 
+        F.modificado_por, 
+        F.fecha_modificacion, 
+        F.accion
+      FROM 
+        FIDE_NACIONALIDAD_TB F
+      JOIN 
+        FIDE_ESTADOS_TB E 
+      ON 
+        F.id_estado = E.id_estado
+    `;
+    const result = await connection.execute(query);
+
+    // Verifica los datos obtenidos
+    console.log('Datos obtenidos:', result.rows);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error de conexión o consulta:', err);
+    res.status(500).send('Error al obtener las nacionalidades');
+  } finally {
+    // Asegúrate de cerrar la conexión al final
+    if (connection) {
+      try {
+        await connection.close();
+      } catch (closeErr) {
+        console.error('Error al cerrar la conexión:', closeErr);
+      }
+    }
+  }
+});
+
+
+app.post('/nacionalidad', async (req, res) => {
+  const { descripcion } = req.body; // Obtenemos la descripción desde el cuerpo de la solicitud
+
+  if (!descripcion || descripcion.trim() === '') {
+      return res.status(400).send('La descripción de la nacionalidad es requerida.');
+  }
+
+  try {
+      const connection = await oracledb.getConnection(dbConfig);
+
+      // Llamamos al procedimiento almacenado
+      await connection.execute(
+          `BEGIN
+              FIDE_NACIONALIDAD_TB_INSERT_SP(p_descripcion => :descripcion);
+           END;`,
+          { descripcion }
+      );
+
+      // Confirmamos la transacción
+      await connection.commit();
+      await connection.close();
+
+      res.status(201).send('Nacionalidad creada exitosamente');
+  } catch (err) {
+      console.error('Error al insertar la nacionalidad:', err);
+      res.status(500).send('Error al insertar la nacionalidad');
+  }
+});
+
+
+app.put('/nacionalidad/:id', async (req, res) => {
+  const { id } = req.params; // ID de la nacionalidad
+  const { descripcion, nuevo_estado } = req.body;  // El nuevo estado (1 para "Activo", 2 para "Inactivo")
+
+  console.log(`Recibiendo solicitud para actualizar la nacionalidad con id: ${id}`);
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar la nacionalidad en la tabla FIDE_NACIONALIDAD_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_NACIONALIDAD_TB
+       SET descripcion = :descripcion, id_estado = :nuevo_estado
+       WHERE id_nacionalidad = :id`,
+      { descripcion, nuevo_estado, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Nacionalidad actualizada correctamente');
+  } catch (err) {
+    console.error('Error al actualizar la nacionalidad:', err);
+    res.status(500).send('Error al actualizar la nacionalidad');
+  }
+});
+
+
 
 // Arrancar el servidor, esto va al final
 app.listen(port, () => {
