@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestión de Monedas</title>
+    <title>Gestión de Tipo de Cambio</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
@@ -20,16 +20,16 @@
 
     <!-- Main Content -->
     <div class="container mt-5">
-        <h1 class="text-center">Gestión de Monedas</h1>
+        <h1 class="text-center">Gestión de Tipo de Cambio</h1>
         <div class="mb-3 text-end">
-            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addCurrencyModal">Agregar Moneda</button>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addExchangeRateModal">Agregar Tipo de Cambio</button>
         </div>
         <table class="table table-striped">
             <thead>
                 <tr>
-                    <th>Código</th>
-                    <th>Nombre</th>
-                    <th>Estado</th>
+                    <th>Moneda</th>
+                    <th>Fecha</th>
+                    <th>Tasa de Cambio</th>
                     <th>Creado Por</th>
                     <th>Fecha Creación</th>
                     <th>Modificado Por</th>
@@ -38,30 +38,36 @@
                     <th>Opciones</th>
                 </tr>
             </thead>
-            <tbody id="currencyTableBody">
+            <tbody id="exchangeRateTableBody">
                 <!-- Los datos se cargarán dinámicamente -->
             </tbody>
         </table>
     </div>
 
-    <!-- Modal para Agregar/Editar Moneda -->
-    <div class="modal fade" id="addCurrencyModal" tabindex="-1" aria-labelledby="addCurrencyModalLabel">
+    <!-- Modal para Agregar/Editar Tipo de Cambio -->
+    <div class="modal fade" id="addExchangeRateModal" tabindex="-1" aria-labelledby="addExchangeRateModalLabel">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="addCurrencyModalLabel">Agregar Moneda</h5>
+                    <h5 class="modal-title" id="addExchangeRateModalLabel">Agregar Tipo de Cambio</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <form id="addCurrencyForm">
-                        <input type="hidden" id="currencyId" /> <!-- Para almacenar el ID al editar -->
+                    <form id="addExchangeRateForm">
+                        <input type="hidden" id="exchangeRateId" /> <!-- Para almacenar el ID al editar -->
                         <div class="mb-3">
-                            <label for="editCodigoMoneda" class="form-label">Código</label>
-                            <input type="text" class="form-control" id="editCodigoMoneda" required>
+                            <label for="editMoneda" class="form-label">Moneda</label>
+                            <select class="form-control" id="editMoneda" required>
+                                <!-- Opciones de moneda se cargarán dinámicamente -->
+                            </select>
                         </div>
                         <div class="mb-3">
-                            <label for="editNombreMoneda" class="form-label">Nombre</label>
-                            <input type="text" class="form-control" id="editNombreMoneda" required>
+                            <label for="editFecha" class="form-label">Fecha</label>
+                            <input type="date" class="form-control" id="editFecha" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editTasaCambio" class="form-label">Tasa de Cambio</label>
+                            <input type="number" step="0.01" class="form-control" id="editTasaCambio" required>
                         </div>
                         <button type="submit" class="btn btn-primary">Guardar</button>
                     </form>
@@ -71,8 +77,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="moneda.js"></script>
+    <script src="tipo_cambio.js"></script>
 </body>
 
 </html>
-

@@ -952,7 +952,12 @@ app.get('/monedas', async (req, res) => {
         M.id_moneda, 
         M.codigo_moneda, 
         M.nombre_moneda, 
-        E.nombre_estado
+        E.nombre_estado,
+        M.creado_por, 
+        M.fecha_creacion, 
+        M.modificado_por, 
+        M.fecha_modificacion, 
+        M.accion
       FROM 
         FIDE_MONEDA_TB M
       JOIN 
@@ -1044,6 +1049,423 @@ app.put('/monedas/:id', async (req, res) => {
     res.status(500).send('Error al actualizar la moneda');
   }
 });
+
+
+//TIPOS DE CAMBIO
+app.get('/tipo_cambio', async (req, res) => {
+  let connection;
+  try {
+    connection = await oracledb.getConnection(dbConfig);
+
+    // Consulta para obtener los datos incluyendo el nombre de la moneda
+    const query = `
+      SELECT 
+        T.id_tipo_cambio,
+        M.nombre_moneda, 
+        T.fecha, 
+        T.tasa_cambio,
+        T.creado_por,
+        T.fecha_creacion, 
+        T.modificado_por, 
+        T.fecha_modificacion, 
+        T.accion
+      FROM 
+        FIDE_TIPO_CAMBIO_TB T
+      JOIN 
+        FIDE_MONEDA_TB M 
+      ON 
+        T.id_moneda = M.id_moneda
+    `;
+    const result = await connection.execute(query);
+
+    // Verifica los datos obtenidos
+    console.log('Datos obtenidos:', result.rows);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error de conexión o consulta:', err);
+    res.status(500).send('Error al obtener los tipos de cambio');
+  } finally {
+    // Asegúrate de cerrar la conexión al final
+    if (connection) {
+      try {
+        await connection.close();
+      } catch (closeErr) {
+        console.error('Error al cerrar la conexión:', closeErr);
+      }
+    }
+  }
+});
+
+app.post('/tipo_cambio', async (req, res) => {
+  const { id_moneda, fecha, tasa_cambio } = req.body;
+
+  if (!id_moneda || !fecha || !tasa_cambio) {
+    return res.status(400).send('Todos los campos son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Llamamos al procedimiento almacenado
+    await connection.execute(
+      `BEGIN
+              FIDE_TIPO_CAMBIO_TB_INSERT_SP(p_id_moneda => :id_moneda, p_fecha => TO_DATE(:fecha, 'YYYY-MM-DD'), p_tasa_cambio => :tasa_cambio);
+           END;`,
+      { id_moneda, fecha, tasa_cambio }
+    );
+
+    // Confirmamos la transacción
+    await connection.commit();
+    await connection.close();
+
+    res.status(201).send('Tipo de cambio creado exitosamente');
+  } catch (err) {
+    console.error('Error al insertar el tipo de cambio:', err);
+    res.status(500).send('Error al insertar el tipo de cambio');
+  }
+});
+
+app.put('/tipo_cambio/:id', async (req, res) => {
+  const { id } = req.params; // ID del tipo de cambio
+  const { id_moneda, fecha, tasa_cambio } = req.body;
+
+  console.log(`Recibiendo solicitud para actualizar el tipo de cambio con id: ${id}`);
+
+  if (!id_moneda || !fecha || !tasa_cambio) {
+    return res.status(400).send('Todos los campos son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar el tipo de cambio en la tabla FIDE_TIPO_CAMBIO_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_TIPO_CAMBIO_TB
+       SET id_moneda = :id_moneda, fecha = TO_DATE(:fecha, 'YYYY-MM-DD'), tasa_cambio = :tasa_cambio
+       WHERE id_tipo_cambio = :id`,
+      { id_moneda, fecha, tasa_cambio, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Tipo de cambio actualizado correctamente');
+  } catch (err) {
+    console.error('Error al actualizar el tipo de cambio:', err);
+    res.status(500).send('Error al actualizar el tipo de cambio');
+  }
+});
+
+
+// IMPUESTOS
+app.get('/impuestos', async (req, res) => {
+  let connection;
+  try {
+    connection = await oracledb.getConnection(dbConfig);
+
+    // Consulta para obtener los datos incluyendo los nombres del país y del estado
+    const query = `
+      SELECT 
+        I.id_impuesto, 
+        I.nombre_impuesto, 
+        I.porcentaje, 
+        P.nombre_pais,
+        E.nombre_estado,
+        I.creado_por,
+        I.fecha_creacion, 
+        I.modificado_por, 
+        I.fecha_modificacion, 
+        I.accion
+      FROM 
+        FIDE_IMPUESTOS_TB I
+      JOIN 
+        FIDE_PAIS_TB P 
+      ON 
+        I.id_pais = P.id_pais
+      JOIN 
+        FIDE_ESTADOS_TB E 
+      ON 
+        I.id_estado = E.id_estado
+    `;
+    const result = await connection.execute(query);
+
+    // Verifica los datos obtenidos
+    console.log('Datos obtenidos:', result.rows);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error de conexión o consulta:', err);
+    res.status(500).send('Error al obtener los impuestos');
+  } finally {
+    // Asegúrate de cerrar la conexión al final
+    if (connection) {
+      try {
+        await connection.close();
+      } catch (closeErr) {
+        console.error('Error al cerrar la conexión:', closeErr);
+      }
+    }
+  }
+});
+
+app.post('/impuestos', async (req, res) => {
+  const { nombre_impuesto, porcentaje, id_pais, id_estado } = req.body;
+
+  if (!nombre_impuesto || !porcentaje || !id_pais || !id_estado) {
+    return res.status(400).send('Todos los campos son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Llamar al procedimiento almacenado para insertar los datos principales
+    await connection.execute(
+      `BEGIN
+              FIDE_IMPUESTOS_TB_INSERT_SP(p_id_pais => :id_pais, p_nombre_impuesto => :nombre_impuesto, p_porcentaje => :porcentaje);
+           END;`,
+      { id_pais, nombre_impuesto, porcentaje }
+    );
+
+    // Recuperar el ID del último impuesto insertado
+    const result = await connection.execute(
+      `SELECT ID_IMPUESTO_SEQ.CURRVAL AS last_id FROM dual`
+    );
+    const lastId = result.rows[0][0];
+
+    // Actualizar el campo id_estado para el impuesto recién insertado
+    await connection.execute(
+      `UPDATE FIDE_IMPUESTOS_TB
+       SET id_estado = :id_estado
+       WHERE id_impuesto = :lastId`,
+      { id_estado, lastId }
+    );
+
+    // Confirmar la transacción
+    await connection.commit();
+    await connection.close();
+
+    res.status(201).send('Impuesto creado exitosamente');
+  } catch (err) {
+    console.error('Error al insertar el impuesto:', err);
+    res.status(500).send('Error al insertar el impuesto');
+  }
+});
+
+app.put('/impuestos/:id', async (req, res) => {
+  const { id } = req.params; // ID del impuesto
+  const { nombre_impuesto, porcentaje, id_pais, id_estado } = req.body;
+
+  console.log(`Recibiendo solicitud para actualizar el impuesto con id: ${id}`);
+
+  if (!nombre_impuesto || !porcentaje || !id_pais || !id_estado) {
+    return res.status(400).send('Todos los campos son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar el impuesto en la tabla FIDE_IMPUESTOS_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_IMPUESTOS_TB
+       SET nombre_impuesto = :nombre_impuesto, porcentaje = :porcentaje, id_pais = :id_pais, id_estado = :id_estado
+       WHERE id_impuesto = :id`,
+      { nombre_impuesto, porcentaje, id_pais, id_estado, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Impuesto actualizado correctamente');
+  } catch (err) {
+    console.error('Error al actualizar el impuesto:', err);
+    res.status(500).send('Error al actualizar el impuesto');
+  }
+});
+
+
+// HOTELES
+app.get('/hoteles', async (req, res) => {
+  let connection;
+  try {
+    connection = await oracledb.getConnection(dbConfig);
+
+    // Consulta para obtener los datos de los hoteles incluyendo nombres de país, provincia, cantón y distrito
+    const query = `
+      SELECT 
+        H.id_hotel, 
+        H.nombre_hotel, 
+        H.telefono, 
+        P.nombre_pais,
+        PRO.nombre_provincia,
+        C.nombre_canton,
+        D.nombre_distrito,
+        E.nombre_estado,
+        H.creado_por,
+        H.fecha_creacion, 
+        H.modificado_por, 
+        H.fecha_modificacion, 
+        H.accion
+      FROM 
+        FIDE_HOTELES_TB H
+      JOIN 
+        FIDE_PAIS_TB P 
+      ON 
+        H.id_pais = P.id_pais
+      JOIN 
+        FIDE_PROVINCIA_TB PRO 
+      ON 
+        H.id_provincia = PRO.id_provincia
+      JOIN 
+        FIDE_CANTON_TB C 
+      ON 
+        H.id_canton = C.id_canton
+      JOIN 
+        FIDE_DISTRITO_TB D 
+      ON 
+        H.id_distrito = D.id_distrito
+      JOIN 
+        FIDE_ESTADOS_TB E 
+      ON 
+        H.id_estado = E.id_estado
+    `;
+    const result = await connection.execute(query);
+
+    // Verifica los datos obtenidos
+    console.log('Datos obtenidos:', result.rows);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error de conexión o consulta:', err);
+    res.status(500).send('Error al obtener los hoteles');
+  } finally {
+    // Asegúrate de cerrar la conexión al final
+    if (connection) {
+      try {
+        await connection.close();
+      } catch (closeErr) {
+        console.error('Error al cerrar la conexión:', closeErr);
+      }
+    }
+  }
+});
+
+app.post('/hoteles', async (req, res) => {
+  const { nombre_hotel, telefono, id_pais, id_provincia, id_canton, id_distrito } = req.body;
+
+  if (!nombre_hotel || !telefono || !id_pais || !id_provincia || !id_canton || !id_distrito) {
+    return res.status(400).send('Todos los campos son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Llamar al procedimiento almacenado para insertar los datos principales
+    await connection.execute(
+      `BEGIN
+              FIDE_HOTELES_TB_INSERT_SP(p_id_pais => :id_pais, p_id_provincia => :id_provincia, p_id_canton => :id_canton, p_id_distrito => :id_distrito, p_nombre_hotel => :nombre_hotel, p_telefono => :telefono);
+           END;`,
+      { id_pais, id_provincia, id_canton, id_distrito, nombre_hotel, telefono }
+    );
+
+    // Recuperar el ID del último hotel insertado
+    const result = await connection.execute(
+      `SELECT ID_HOTEL_SEQ.CURRVAL AS last_id FROM dual`
+    );
+    const lastId = result.rows[0][0];
+
+    // Confirmar la transacción
+    await connection.commit();
+    await connection.close();
+
+    res.status(201).send('Hotel creado exitosamente');
+  } catch (err) {
+    console.error('Error al insertar el hotel:', err);
+    res.status(500).send('Error al insertar el hotel');
+  }
+});
+
+app.put('/hoteles/:id', async (req, res) => {
+  const { id } = req.params; // ID del hotel
+  const { nombre_hotel, telefono, id_pais, id_provincia, id_canton, id_distrito } = req.body;
+
+  console.log(`Recibiendo solicitud para actualizar el hotel con id: ${id}`);
+
+  if (!nombre_hotel || !telefono || !id_pais || !id_provincia || !id_canton || !id_distrito) {
+    return res.status(400).send('Todos los campos son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar el hotel en la tabla FIDE_HOTELES_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_HOTELES_TB
+       SET nombre_hotel = :nombre_hotel, telefono = :telefono, id_pais = :id_pais, id_provincia = :id_provincia, id_canton = :id_canton, id_distrito = :id_distrito
+       WHERE id_hotel = :id`,
+      { nombre_hotel, telefono, id_pais, id_provincia, id_canton, id_distrito, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Hotel actualizado correctamente');
+  } catch (err) {
+    console.error('Error al actualizar el hotel:', err);
+    res.status(500).send('Error al actualizar el hotel');
+  }
+});
+
+app.put('/hoteles/toggleState/:id', async (req, res) => {
+  const { id } = req.params; // ID del hotel
+  const { newState } = req.body;
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar el estado del hotel en la tabla FIDE_HOTELES_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_HOTELES_TB
+       SET id_estado = (SELECT id_estado FROM FIDE_ESTADOS_TB WHERE nombre_estado = :newState)
+       WHERE id_hotel = :id`,
+      { newState, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Estado del hotel actualizado correctamente');
+  } catch (err) {
+    console.error('Error al actualizar el estado del hotel:', err);
+    res.status(500).send('Error al actualizar el estado del hotel');
+  }
+});
+
+
+
+
+
+
+
+
+
+
 
 
 

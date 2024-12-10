@@ -15,13 +15,18 @@ const loadCurrencies = async () => {
 
         if (Array.isArray(response.data)) {
             response.data.forEach(currency => {
-                const [id_moneda, codigo_moneda, nombre_moneda, nombre_estado] = currency;
+                const [id_moneda, codigo_moneda, nombre_moneda, nombre_estado, creado_por, fecha_creacion, modificado_por, fecha_modificacion, accion] = currency;
 
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td>${codigo_moneda}</td>
                     <td>${nombre_moneda}</td>
                     <td>${nombre_estado}</td>
+                    <td>${creado_por}</td>
+                    <td>${fecha_creacion}</td>
+                    <td>${modificado_por}</td>
+                    <td>${fecha_modificacion}</td>
+                    <td>${accion}</td>
                     <td>
                         <button class="btn btn-success btn-sm" onclick="toggleState(${id_moneda}, '${nombre_estado}', '${codigo_moneda}', '${nombre_moneda}')">
                             ${nombre_estado === 'Activo' ? 'Desactivar' : 'Activar'}
