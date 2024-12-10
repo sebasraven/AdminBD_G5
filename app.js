@@ -1459,7 +1459,349 @@ app.put('/hoteles/toggleState/:id', async (req, res) => {
 
 
 
+// HABITACIONES
+app.get('/habitaciones', async (req, res) => {
+  let connection;
+  try {
+    connection = await oracledb.getConnection(dbConfig);
 
+    // Consulta para obtener los datos de las habitaciones incluyendo nombres de hotel y moneda
+    const query = `
+      SELECT 
+        H.id_habitacion, 
+        HO.nombre_hotel, 
+        M.nombre_moneda, 
+        H.numero_habitacion, 
+        H.tipo_habitacion, 
+        H.precio_por_noche, 
+        H.capacidad_personas, 
+        E.nombre_estado, 
+        H.creado_por, 
+        H.fecha_creacion, 
+        H.modificado_por, 
+        H.fecha_modificacion, 
+        H.accion
+      FROM 
+        FIDE_HABITACIONES_TB H
+      JOIN 
+        FIDE_HOTELES_TB HO 
+      ON 
+        H.id_hotel = HO.id_hotel
+      JOIN 
+        FIDE_MONEDA_TB M 
+      ON 
+        H.id_moneda = M.id_moneda
+      JOIN 
+        FIDE_ESTADOS_TB E 
+      ON 
+        H.id_estado = E.id_estado
+    `;
+    const result = await connection.execute(query);
+
+    // Verifica los datos obtenidos
+    console.log('Datos obtenidos:', result.rows);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error de conexión o consulta:', err);
+    res.status(500).send('Error al obtener las habitaciones');
+  } finally {
+    // Asegúrate de cerrar la conexión al final
+    if (connection) {
+      try {
+        await connection.close();
+      } catch (closeErr) {
+        console.error('Error al cerrar la conexión:', closeErr);
+      }
+    }
+  }
+});
+
+
+app.post('/habitaciones', async (req, res) => {
+  const { id_hotel, id_moneda, numero_habitacion, tipo_habitacion, precio_por_noche, capacidad_personas } = req.body;
+
+  if (!id_hotel || !id_moneda || !numero_habitacion || !tipo_habitacion || !precio_por_noche || !capacidad_personas) {
+    return res.status(400).send('Todos los campos son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Llamar al procedimiento almacenado para insertar los datos principales
+    await connection.execute(
+      `BEGIN
+              FIDE_HABITACIONES_TB_INSERT_SP(p_id_hotel => :id_hotel, p_id_moneda => :id_moneda, p_numero_habitacion => :numero_habitacion, p_tipo_habitacion => :tipo_habitacion, p_precio_por_noche => :precio_por_noche, p_capacidad_personas => :capacidad_personas);
+           END;`,
+      { id_hotel, id_moneda, numero_habitacion, tipo_habitacion, precio_por_noche, capacidad_personas }
+    );
+
+    // Recuperar el ID de la última habitación insertada
+    const result = await connection.execute(
+      `SELECT ID_HABITACION_SEQ.CURRVAL AS last_id FROM dual`
+    );
+    const lastId = result.rows[0][0];
+
+    // Confirmar la transacción
+    await connection.commit();
+    await connection.close();
+
+    res.status(201).send('Habitación creada exitosamente');
+  } catch (err) {
+    console.error('Error al insertar la habitación:', err);
+    res.status(500).send('Error al insertar la habitación');
+  }
+});
+
+app.put('/habitaciones/:id', async (req, res) => {
+  const { id } = req.params; // ID de la habitación
+  const { id_hotel, id_moneda, numero_habitacion, tipo_habitacion, precio_por_noche, capacidad_personas } = req.body;
+
+  console.log(`Recibiendo solicitud para actualizar la habitación con id: ${id}`);
+
+  if (!id_hotel || !id_moneda || !numero_habitacion || !tipo_habitacion || !precio_por_noche || !capacidad_personas) {
+    return res.status(400).send('Todos los campos son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar la habitación en la tabla FIDE_HABITACIONES_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_HABITACIONES_TB
+       SET id_hotel = :id_hotel, id_moneda = :id_moneda, numero_habitacion = :numero_habitacion, tipo_habitacion = :tipo_habitacion, precio_por_noche = :precio_por_noche, capacidad_personas = :capacidad_personas
+       WHERE id_habitacion = :id`,
+      { id_hotel, id_moneda, numero_habitacion, tipo_habitacion, precio_por_noche, capacidad_personas, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Habitación actualizada correctamente');
+  } catch (err) {
+    console.error('Error al actualizar la habitación:', err);
+    res.status(500).send('Error al actualizar la habitación');
+  }
+});
+
+app.put('/habitaciones/toggleState/:id', async (req, res) => {
+  const { id } = req.params; // ID de la habitación
+  const { newState } = req.body;
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar el estado de la habitación en la tabla FIDE_HABITACIONES_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_HABITACIONES_TB
+       SET id_estado = (SELECT id_estado FROM FIDE_ESTADOS_TB WHERE nombre_estado = :newState)
+       WHERE id_habitacion = :id`,
+      { newState, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Estado de la habitación actualizado correctamente');
+  } catch (err) {
+    console.error('Error al actualizar el estado de la habitación:', err);
+    res.status(500).send('Error al actualizar el estado de la habitación');
+  }
+});
+
+
+// LIMPIEZA HABITACIONES
+app.get('/limpieza_habitaciones', async (req, res) => {
+  let connection;
+  try {
+    connection = await oracledb.getConnection(dbConfig);
+
+    // Consulta para obtener los datos de las limpiezas incluyendo números de habitación y nombres de usuario
+    const query = `
+      SELECT 
+        L.id_limpieza, 
+        H.numero_habitacion, 
+        HO.nombre_hotel, 
+        U.nombre AS nombre_usuario, 
+        TO_CHAR(L.fecha_limpieza, 'YYYY-MM-DD') AS fecha_limpieza, 
+        L.comentarios, 
+        E.nombre_estado, 
+        L.creado_por, 
+        L.fecha_creacion, 
+        L.modificado_por, 
+        L.fecha_modificacion, 
+        L.accion
+      FROM 
+        FIDE_LIMPIEZA_HABITACIONES_TB L
+      JOIN 
+        FIDE_HABITACIONES_TB H 
+      ON 
+        L.id_habitacion = H.id_habitacion
+      JOIN 
+        FIDE_HOTELES_TB HO 
+      ON 
+        H.id_hotel = HO.id_hotel
+      JOIN 
+        FIDE_USUARIOS_TB U 
+      ON 
+        L.id_usuario = U.id_usuario
+      JOIN 
+        FIDE_ESTADOS_TB E 
+      ON 
+        L.id_estado = E.id_estado
+    `;
+    const result = await connection.execute(query);
+
+    // Verifica los datos obtenidos
+    console.log('Datos obtenidos:', result.rows);
+
+    // Formatear el resultado para incluir tanto el número de habitación como el nombre del hotel
+    const formattedResult = result.rows.map(row => {
+      return {
+        id_limpieza: row[0],
+        nombre_habitacion: `Habitación ${row[1]} (${row[2]})`,
+        nombre_usuario: row[3],
+        fecha_limpieza: row[4],
+        comentarios: row[5],
+        nombre_estado: row[6],
+        creado_por: row[7],
+        fecha_creacion: row[8],
+        modificado_por: row[9],
+        fecha_modificacion: row[10],
+        accion: row[11]
+      };
+    });
+
+    res.json(formattedResult);
+  } catch (err) {
+    console.error('Error de conexión o consulta:', err);
+    res.status(500).send('Error al obtener las limpiezas');
+  } finally {
+    // Asegúrate de cerrar la conexión al final
+    if (connection) {
+      try {
+        await connection.close();
+      } catch (closeErr) {
+        console.error('Error al cerrar la conexión:', closeErr);
+      }
+    }
+  }
+});
+
+
+
+app.post('/limpieza_habitaciones', async (req, res) => {
+  const { id_habitacion, id_usuario, fecha_limpieza, comentarios } = req.body;
+
+  if (!id_habitacion || !id_usuario || !fecha_limpieza) {
+    return res.status(400).send('Todos los campos son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Formatear la fecha de limpieza
+    const formattedFechaLimpieza = `TO_DATE('${fecha_limpieza}', 'YYYY-MM-DD')`;
+
+    // Llamar al procedimiento almacenado para insertar los datos principales
+    await connection.execute(
+      `BEGIN
+              FIDE_LIMPIEZA_HABITACIONES_TB_INSERT_SP(p_id_habitacion => :id_habitacion, p_id_usuario => :id_usuario, p_fecha_limpieza => ${formattedFechaLimpieza}, p_comentarios => :comentarios);
+           END;`,
+      { id_habitacion, id_usuario, comentarios }
+    );
+
+    // Recuperar el ID de la última limpieza insertada
+    const result = await connection.execute(
+      `SELECT ID_LIMPIEZA_SEQ.CURRVAL AS last_id FROM dual`
+    );
+    const lastId = result.rows[0][0];
+
+    // Confirmar la transacción
+    await connection.commit();
+    await connection.close();
+
+    res.status(201).send('Limpieza creada exitosamente');
+  } catch (err) {
+    console.error('Error al insertar la limpieza:', err);
+    res.status(500).send('Error al insertar la limpieza');
+  }
+});
+
+app.put('/limpieza_habitaciones/:id', async (req, res) => {
+  const { id } = req.params; // ID de la limpieza
+  const { id_habitacion, id_usuario, fecha_limpieza, comentarios } = req.body;
+
+  console.log(`Recibiendo solicitud para actualizar la limpieza con id: ${id}`);
+
+  if (!id_habitacion || !id_usuario || !fecha_limpieza) {
+    return res.status(400).send('Todos los campos son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Formatear la fecha de limpieza
+    const formattedFechaLimpieza = `TO_DATE('${fecha_limpieza}', 'YYYY-MM-DD')`;
+
+    // Actualizar la limpieza en la tabla FIDE_LIMPIEZA_HABITACIONES_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_LIMPIEZA_HABITACIONES_TB
+       SET id_habitacion = :id_habitacion, id_usuario = :id_usuario, fecha_limpieza = ${formattedFechaLimpieza}, comentarios = :comentarios
+       WHERE id_limpieza = :id`,
+      { id_habitacion, id_usuario, comentarios, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Limpieza actualizada correctamente');
+  } catch (err) {
+    console.error('Error al actualizar la limpieza:', err);
+    res.status(500).send('Error al actualizar la limpieza');
+  }
+});
+
+app.put('/limpieza_habitaciones/toggleState/:id', async (req, res) => {
+  const { id } = req.params; // ID de la limpieza
+  const { newState } = req.body;
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar el estado de la limpieza en la tabla FIDE_LIMPIEZA_HABITACIONES_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_LIMPIEZA_HABITACIONES_TB
+       SET id_estado = (SELECT id_estado FROM FIDE_ESTADOS_TB WHERE nombre_estado = :newState)
+       WHERE id_limpieza = :id`,
+      { newState, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Estado de la limpieza actualizado correctamente');
+  } catch (err) {
+    console.error('Error al actualizar el estado de la limpieza:', err);
+    res.status(500).send('Error al actualizar el estado de la limpieza');
+  }
+});
 
 
 
