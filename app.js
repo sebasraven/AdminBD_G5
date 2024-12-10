@@ -2976,6 +2976,300 @@ app.put('/detalle_facturas/toggleState/:id', async (req, res) => {
 });
 
 
+// TIPO_MANTENIMIENTO
+app.get('/tipo_mantenimiento', async (req, res) => {
+  let connection;
+  try {
+    connection = await oracledb.getConnection(dbConfig);
+
+    // Consulta para obtener los datos de los tipos de mantenimiento
+    const query = `
+      SELECT 
+        TM.id_tipo_mantenimiento,
+        TM.tipo_mantenimiento,
+        E.nombre_estado,
+        TM.creado_por,
+        TO_CHAR(TM.fecha_creacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_creacion,
+        TM.modificado_por,
+        TO_CHAR(TM.fecha_modificacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_modificacion,
+        TM.accion
+      FROM 
+        FIDE_TIPO_MANTENIMIENTO_TB TM
+      JOIN 
+        FIDE_ESTADOS_TB E ON TM.id_estado = E.id_estado
+    `;
+    const result = await connection.execute(query);
+
+    // Verifica los datos obtenidos
+    console.log('Datos obtenidos:', result.rows);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error de conexión o consulta:', err);
+    res.status(500).send('Error al obtener los tipos de mantenimiento');
+  } finally {
+    // Asegúrate de cerrar la conexión al final
+    if (connection) {
+      try {
+        await connection.close();
+      } catch (closeErr) {
+        console.error('Error al cerrar la conexión:', closeErr);
+      }
+    }
+  }
+});
+
+app.post('/tipo_mantenimiento', async (req, res) => {
+  const { tipo_mantenimiento } = req.body;
+
+  if (!tipo_mantenimiento) {
+    return res.status(400).send('Todos los campos obligatorios son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Llamar al procedimiento almacenado para insertar los datos principales
+    await connection.execute(
+      `BEGIN
+              FIDE_TIPO_MANTENIMIENTO_TB_INSERT_SP(
+                p_tipo_mantenimiento => :tipo_mantenimiento
+              );
+           END;`,
+      { tipo_mantenimiento }
+    );
+
+    // Confirmar la transacción
+    await connection.commit();
+    await connection.close();
+
+    res.status(201).send('Tipo de mantenimiento creado exitosamente');
+  } catch (err) {
+    console.error('Error al insertar el tipo de mantenimiento:', err);
+    res.status(500).send('Error al insertar el tipo de mantenimiento');
+  }
+});
+
+app.put('/tipo_mantenimiento/:id', async (req, res) => {
+  const { id } = req.params; // ID del tipo de mantenimiento
+  const { tipo_mantenimiento } = req.body;
+
+  if (!tipo_mantenimiento) {
+    return res.status(400).send('Todos los campos obligatorios son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar el tipo de mantenimiento en la tabla FIDE_TIPO_MANTENIMIENTO_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_TIPO_MANTENIMIENTO_TB
+       SET tipo_mantenimiento = :tipo_mantenimiento
+       WHERE id_tipo_mantenimiento = :id`,
+      { tipo_mantenimiento, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Tipo de mantenimiento actualizado correctamente');
+  } catch (err) {
+    console.error('Error al actualizar el tipo de mantenimiento:', err);
+    res.status(500).send('Error al actualizar el tipo de mantenimiento');
+  }
+});
+
+app.put('/tipo_mantenimiento/toggleState/:id', async (req, res) => {
+  const { id } = req.params; // ID del tipo de mantenimiento
+  const { newState } = req.body;
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar el estado del tipo de mantenimiento en la tabla FIDE_TIPO_MANTENIMIENTO_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_TIPO_MANTENIMIENTO_TB
+       SET id_estado = (SELECT id_estado FROM FIDE_ESTADOS_TB WHERE nombre_estado = :newState)
+       WHERE id_tipo_mantenimiento = :id`,
+      { newState, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Estado del tipo de mantenimiento actualizado correctamente');
+  } catch (err) {
+    console.error('Error al actualizar el estado del tipo de mantenimiento:', err);
+    res.status(500).send('Error al actualizar el estado del tipo de mantenimiento');
+  }
+});
+
+
+// MANTENIMIENTOS
+app.get('/mantenimientos', async (req, res) => {
+  let connection;
+  try {
+    connection = await oracledb.getConnection(dbConfig);
+
+    // Consulta para obtener los datos de los mantenimientos con el formato deseado para las habitaciones
+    const query = `
+      SELECT 
+        M.id_mantenimiento,
+        HO.nombre_hotel || ', Habitación ' || H.numero_habitacion AS habitacion_formateada,
+        TM.tipo_mantenimiento,
+        TO_CHAR(M.fecha_mantenimiento, 'YYYY-MM-DD') AS fecha_mantenimiento,
+        E.nombre_estado,
+        M.creado_por,
+        TO_CHAR(M.fecha_creacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_creacion,
+        M.modificado_por,
+        TO_CHAR(M.fecha_modificacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_modificacion,
+        M.accion
+      FROM 
+        FIDE_MANTENIMIENTO_TB M
+      JOIN 
+        FIDE_HABITACIONES_TB H ON M.id_habitacion = H.id_habitacion
+      JOIN 
+        FIDE_HOTELES_TB HO ON H.id_hotel = HO.id_hotel
+      JOIN 
+        FIDE_TIPO_MANTENIMIENTO_TB TM ON M.id_tipo_mantenimiento = TM.id_tipo_mantenimiento
+      JOIN 
+        FIDE_ESTADOS_TB E ON M.id_estado = E.id_estado
+    `;
+    const result = await connection.execute(query);
+
+    // Verifica los datos obtenidos
+    console.log('Datos obtenidos:', result.rows);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error de conexión o consulta:', err);
+    res.status(500).send('Error al obtener los mantenimientos');
+  } finally {
+    // Asegúrate de cerrar la conexión al final
+    if (connection) {
+      try {
+        await connection.close();
+      } catch (closeErr) {
+        console.error('Error al cerrar la conexión:', closeErr);
+      }
+    }
+  }
+});
+
+app.post('/mantenimientos', async (req, res) => {
+  const { id_habitacion, id_tipo_mantenimiento, fecha_mantenimiento } = req.body;
+
+  if (!id_habitacion || !id_tipo_mantenimiento || !fecha_mantenimiento) {
+    return res.status(400).send('Todos los campos obligatorios son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Llamar al procedimiento almacenado para insertar los datos principales
+    await connection.execute(
+      `BEGIN
+              FIDE_MANTENIMIENTO_TB_INSERT_SP(
+                p_id_habitacion => :id_habitacion,
+                p_id_tipo_mantenimiento => :id_tipo_mantenimiento,
+                p_fecha_mantenimiento => TO_DATE(:fecha_mantenimiento, 'YYYY-MM-DD')
+              );
+           END;`,
+      { id_habitacion, id_tipo_mantenimiento, fecha_mantenimiento }
+    );
+
+    // Confirmar la transacción
+    await connection.commit();
+    await connection.close();
+
+    res.status(201).send('Mantenimiento creado exitosamente');
+  } catch (err) {
+    console.error('Error al insertar el mantenimiento:', err);
+    res.status(500).send('Error al insertar el mantenimiento');
+  }
+});
+
+app.put('/mantenimientos/:id', async (req, res) => {
+  const { id } = req.params; // ID del mantenimiento
+  const { id_habitacion, id_tipo_mantenimiento, fecha_mantenimiento } = req.body;
+
+  if (!id_habitacion || !id_tipo_mantenimiento || !fecha_mantenimiento) {
+    return res.status(400).send('Todos los campos obligatorios son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar el mantenimiento en la tabla FIDE_MANTENIMIENTO_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_MANTENIMIENTO_TB
+       SET id_habitacion = :id_habitacion, id_tipo_mantenimiento = :id_tipo_mantenimiento, fecha_mantenimiento = TO_DATE(:fecha_mantenimiento, 'YYYY-MM-DD')
+       WHERE id_mantenimiento = :id`,
+      { id_habitacion, id_tipo_mantenimiento, fecha_mantenimiento, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Mantenimiento actualizado correctamente');
+  } catch (err) {
+    console.error('Error al actualizar el mantenimiento:', err);
+    res.status(500).send('Error al actualizar el mantenimiento');
+  }
+});
+
+app.put('/mantenimientos/toggleState/:id', async (req, res) => {
+  const { id } = req.params; // ID del mantenimiento
+  const { newState } = req.body;
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar el estado del mantenimiento en la tabla FIDE_MANTENIMIENTO_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_MANTENIMIENTO_TB
+       SET id_estado = (SELECT id_estado FROM FIDE_ESTADOS_TB WHERE nombre_estado = :newState)
+       WHERE id_mantenimiento = :id`,
+      { newState, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Estado del mantenimiento actualizado correctamente');
+  } catch (err) {
+    console.error('Error al actualizar el estado del mantenimiento:', err);
+    res.status(500).send('Error al actualizar el estado del mantenimiento');
+  }
+});
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
