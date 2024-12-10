@@ -3260,10 +3260,440 @@ app.put('/mantenimientos/toggleState/:id', async (req, res) => {
 });
 
 
+// INVENTARIO
+app.get('/inventario', async (req, res) => {
+  let connection;
+  try {
+    connection = await oracledb.getConnection(dbConfig);
+
+    // Consulta para obtener los datos del inventario
+    const query = `
+      SELECT 
+        I.id_inventario,
+        H.numero_habitacion,
+        HO.nombre_hotel,
+        E.nombre_estado,
+        I.creado_por,
+        TO_CHAR(I.fecha_creacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_creacion,
+        I.modificado_por,
+        TO_CHAR(I.fecha_modificacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_modificacion,
+        I.accion
+      FROM 
+        FIDE_INVENTARIO_TB I
+      JOIN 
+        FIDE_HABITACIONES_TB H ON I.id_habitacion = H.id_habitacion
+      JOIN 
+        FIDE_HOTELES_TB HO ON I.id_hotel = HO.id_hotel
+      JOIN 
+        FIDE_ESTADOS_TB E ON I.id_estado = E.id_estado
+    `;
+    const result = await connection.execute(query);
+
+    // Verifica los datos obtenidos
+    console.log('Datos obtenidos:', result.rows);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error de conexión o consulta:', err);
+    res.status(500).send('Error al obtener el inventario');
+  } finally {
+    // Asegúrate de cerrar la conexión al final
+    if (connection) {
+      try {
+        await connection.close();
+      } catch (closeErr) {
+        console.error('Error al cerrar la conexión:', closeErr);
+      }
+    }
+  }
+});
+
+app.post('/inventario', async (req, res) => {
+  const { id_habitacion, id_hotel } = req.body;
+
+  if (!id_habitacion || !id_hotel) {
+    return res.status(400).send('Todos los campos obligatorios son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Llamar al procedimiento almacenado para insertar los datos principales
+    await connection.execute(
+      `BEGIN
+              FIDE_INVENTARIO_TB_INSERT_SP(
+                p_id_habitacion => :id_habitacion,
+                p_id_hotel => :id_hotel
+              );
+           END;`,
+      { id_habitacion, id_hotel }
+    );
+
+    // Confirmar la transacción
+    await connection.commit();
+    await connection.close();
+
+    res.status(201).send('Inventario creado exitosamente');
+  } catch (err) {
+    console.error('Error al insertar el inventario:', err);
+    res.status(500).send('Error al insertar el inventario');
+  }
+});
+
+app.put('/inventario/:id', async (req, res) => {
+  const { id } = req.params; // ID del inventario
+  const { id_habitacion, id_hotel } = req.body;
+
+  if (!id_habitacion || !id_hotel) {
+    return res.status(400).send('Todos los campos obligatorios son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar el inventario en la tabla FIDE_INVENTARIO_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_INVENTARIO_TB
+       SET id_habitacion = :id_habitacion, id_hotel = :id_hotel
+       WHERE id_inventario = :id`,
+      { id_habitacion, id_hotel, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Inventario actualizado correctamente');
+  } catch (err) {
+    console.error('Error al actualizar el inventario:', err);
+    res.status(500).send('Error al actualizar el inventario');
+  }
+});
+
+app.put('/inventario/toggleState/:id', async (req, res) => {
+  const { id } = req.params; // ID del inventario
+  const { newState } = req.body;
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar el estado del inventario en la tabla FIDE_INVENTARIO_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_INVENTARIO_TB
+       SET id_estado = (SELECT id_estado FROM FIDE_ESTADOS_TB WHERE nombre_estado = :newState)
+       WHERE id_inventario = :id`,
+      { newState, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Estado del inventario actualizado correctamente');
+  } catch (err) {
+    console.error('Error al actualizar el estado del inventario:', err);
+    res.status(500).send('Error al actualizar el estado del inventario');
+  }
+});
 
 
+// ÍTEMS
+app.get('/items', async (req, res) => {
+  let connection;
+  try {
+    connection = await oracledb.getConnection(dbConfig);
+
+    // Consulta para obtener los datos de los ítems
+    const query = `
+      SELECT 
+        I.id_item,
+        I.marca,
+        I.modelo,
+        TO_CHAR(I.fecha_compra, 'YYYY-MM-DD') AS fecha_compra,
+        I.descripcion,
+        E.nombre_estado,
+        I.creado_por,
+        TO_CHAR(I.fecha_creacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_creacion,
+        I.modificado_por,
+        TO_CHAR(I.fecha_modificacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_modificacion,
+        I.accion
+      FROM 
+        FIDE_ITEM_TB I
+      JOIN 
+        FIDE_ESTADOS_TB E ON I.id_estado = E.id_estado
+    `;
+    const result = await connection.execute(query);
+
+    // Verifica los datos obtenidos
+    console.log('Datos obtenidos:', result.rows);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error de conexión o consulta:', err);
+    res.status(500).send('Error al obtener los ítems');
+  } finally {
+    // Asegúrate de cerrar la conexión al final
+    if (connection) {
+      try {
+        await connection.close();
+      } catch (closeErr) {
+        console.error('Error al cerrar la conexión:', closeErr);
+      }
+    }
+  }
+});
+
+app.post('/items', async (req, res) => {
+  const { marca, modelo, fecha_compra, descripcion } = req.body;
+
+  if (!marca || !modelo || !fecha_compra || !descripcion) {
+    return res.status(400).send('Todos los campos obligatorios son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Llamar al procedimiento almacenado para insertar los datos principales
+    await connection.execute(
+      `BEGIN
+              FIDE_ITEM_TB_INSERT_SP(
+                p_marca => :marca,
+                p_modelo => :modelo,
+                p_fecha_compra => TO_DATE(:fecha_compra, 'YYYY-MM-DD'),
+                p_descripcion => :descripcion
+              );
+           END;`,
+      { marca, modelo, fecha_compra, descripcion }
+    );
+
+    // Confirmar la transacción
+    await connection.commit();
+    await connection.close();
+
+    res.status(201).send('Ítem creado exitosamente');
+  } catch (err) {
+    console.error('Error al insertar el ítem:', err);
+    res.status(500).send('Error al insertar el ítem');
+  }
+});
+
+app.put('/items/:id', async (req, res) => {
+  const { id } = req.params; // ID del ítem
+  const { marca, modelo, fecha_compra, descripcion } = req.body;
+
+  if (!marca || !modelo || !fecha_compra || !descripcion) {
+    return res.status(400).send('Todos los campos obligatorios son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar el ítem en la tabla FIDE_ITEM_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_ITEM_TB
+       SET marca = :marca, modelo = :modelo, fecha_compra = TO_DATE(:fecha_compra, 'YYYY-MM-DD'), descripcion = :descripcion
+       WHERE id_item = :id`,
+      { marca, modelo, fecha_compra, descripcion, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Ítem actualizado correctamente');
+  } catch (err) {
+    console.error('Error al actualizar el ítem:', err);
+    res.status(500).send('Error al actualizar el ítem');
+  }
+});
+
+app.put('/items/toggleState/:id', async (req, res) => {
+  const { id } = req.params; // ID del ítem
+  const { newState } = req.body;
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar el estado del ítem en la tabla FIDE_ITEM_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_ITEM_TB
+       SET id_estado = (SELECT id_estado FROM FIDE_ESTADOS_TB WHERE nombre_estado = :newState)
+       WHERE id_item = :id`,
+      { newState, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Estado del ítem actualizado correctamente');
+  } catch (err) {
+    console.error('Error al actualizar el estado del ítem:', err);
+    res.status(500).send('Error al actualizar el estado del ítem');
+  }
+});
 
 
+// INVENTARIO-ITEM
+app.get('/inventario_item', async (req, res) => {
+  let connection;
+  try {
+    connection = await oracledb.getConnection(dbConfig);
+
+    // Consulta para obtener los datos de los inventario-ítems
+    const query = `
+      SELECT 
+        II.id_inventario_item,
+        HO.nombre_hotel || ', Habitación ' || H.numero_habitacion AS nombre_inventario,
+        I.marca || ' ' || I.modelo AS nombre_item,
+        II.cantidad,
+        E.nombre_estado,
+        II.creado_por,
+        TO_CHAR(II.fecha_creacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_creacion,
+        II.modificado_por,
+        TO_CHAR(II.fecha_modificacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_modificacion,
+        II.accion
+      FROM 
+        FIDE_INVENTARIO_ITEM_TB II
+      JOIN 
+        FIDE_INVENTARIO_TB IT ON II.id_inventario = IT.id_inventario
+      JOIN 
+        FIDE_HABITACIONES_TB H ON IT.id_habitacion = H.id_habitacion
+      JOIN 
+        FIDE_HOTELES_TB HO ON IT.id_hotel = HO.id_hotel
+      JOIN 
+        FIDE_ITEM_TB I ON II.id_item = I.id_item
+      JOIN 
+        FIDE_ESTADOS_TB E ON II.id_estado = E.id_estado
+    `;
+    const result = await connection.execute(query);
+
+    // Verifica los datos obtenidos
+    console.log('Datos obtenidos:', result.rows);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error de conexión o consulta:', err);
+    res.status(500).send('Error al obtener los inventario-ítems');
+  } finally {
+    // Asegúrate de cerrar la conexión al final
+    if (connection) {
+      try {
+        await connection.close();
+      } catch (closeErr) {
+        console.error('Error al cerrar la conexión:', closeErr);
+      }
+    }
+  }
+});
+
+
+app.post('/inventario_item', async (req, res) => {
+  const { id_inventario, id_item, cantidad } = req.body;
+
+  if (!id_inventario || !id_item || !cantidad) {
+    return res.status(400).send('Todos los campos obligatorios son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Llamar al procedimiento almacenado para insertar los datos principales
+    await connection.execute(
+      `BEGIN
+              FIDE_INVENTARIO_ITEM_TB_INSERT_SP(
+                p_id_inventario => :id_inventario,
+                p_id_item => :id_item,
+                p_cantidad => :cantidad
+              );
+           END;`,
+      { id_inventario, id_item, cantidad }
+    );
+
+    // Confirmar la transacción
+    await connection.commit();
+    await connection.close();
+
+    res.status(201).send('Inventario-Ítem creado exitosamente');
+  } catch (err) {
+    console.error('Error al insertar el inventario-ítem:', err);
+    res.status(500).send('Error al insertar el inventario-ítem');
+  }
+});
+
+app.put('/inventario_item/:id', async (req, res) => {
+  const { id } = req.params; // ID del inventario-ítem
+  const { id_inventario, id_item, cantidad } = req.body;
+
+  if (!id_inventario || !id_item || !cantidad) {
+    return res.status(400).send('Todos los campos obligatorios son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar el inventario-ítem en la tabla FIDE_INVENTARIO_ITEM_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_INVENTARIO_ITEM_TB
+       SET id_inventario = :id_inventario, id_item = :id_item, cantidad = :cantidad
+       WHERE id_inventario_item = :id`,
+      { id_inventario, id_item, cantidad, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Inventario-Ítem actualizado correctamente');
+  } catch (err) {
+    console.error('Error al actualizar el inventario-ítem:', err);
+    res.status(500).send('Error al actualizar el inventario-ítem');
+  }
+});
+
+app.put('/inventario_item/toggleState/:id', async (req, res) => {
+  const { id } = req.params; // ID del inventario-ítem
+  const { newState } = req.body;
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar el estado del inventario-ítem en la tabla FIDE_INVENTARIO_ITEM_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_INVENTARIO_ITEM_TB
+       SET id_estado = (SELECT id_estado FROM FIDE_ESTADOS_TB WHERE nombre_estado = :newState)
+       WHERE id_inventario_item = :id`,
+      { newState, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Estado del inventario-ítem actualizado correctamente');
+  } catch (err) {
+    console.error('Error al actualizar el estado del inventario-ítem:', err);
+    res.status(500).send('Error al actualizar el estado del inventario-ítem');
+  }
+});
 
 
 
