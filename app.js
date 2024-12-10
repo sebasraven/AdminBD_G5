@@ -161,28 +161,28 @@ app.post('/nacionalidad', async (req, res) => {
   const { descripcion } = req.body; // Obtenemos la descripción desde el cuerpo de la solicitud
 
   if (!descripcion || descripcion.trim() === '') {
-      return res.status(400).send('La descripción de la nacionalidad es requerida.');
+    return res.status(400).send('La descripción de la nacionalidad es requerida.');
   }
 
   try {
-      const connection = await oracledb.getConnection(dbConfig);
+    const connection = await oracledb.getConnection(dbConfig);
 
-      // Llamamos al procedimiento almacenado
-      await connection.execute(
-          `BEGIN
+    // Llamamos al procedimiento almacenado
+    await connection.execute(
+      `BEGIN
               FIDE_NACIONALIDAD_TB_INSERT_SP(p_descripcion => :descripcion);
            END;`,
-          { descripcion }
-      );
+      { descripcion }
+    );
 
-      // Confirmamos la transacción
-      await connection.commit();
-      await connection.close();
+    // Confirmamos la transacción
+    await connection.commit();
+    await connection.close();
 
-      res.status(201).send('Nacionalidad creada exitosamente');
+    res.status(201).send('Nacionalidad creada exitosamente');
   } catch (err) {
-      console.error('Error al insertar la nacionalidad:', err);
-      res.status(500).send('Error al insertar la nacionalidad');
+    console.error('Error al insertar la nacionalidad:', err);
+    res.status(500).send('Error al insertar la nacionalidad');
   }
 });
 
@@ -217,6 +217,244 @@ app.put('/nacionalidad/:id', async (req, res) => {
     res.status(500).send('Error al actualizar la nacionalidad');
   }
 });
+
+
+//PAIS
+app.get('/pais', async (req, res) => {
+  let connection;
+  try {
+    connection = await oracledb.getConnection(dbConfig);
+
+    // Consulta para obtener los datos incluyendo el nombre del estado
+    const query = `
+      SELECT 
+        F.id_pais, 
+        F.nombre_pais, 
+        E.nombre_estado, 
+        F.creado_por, 
+        F.fecha_creacion, 
+        F.modificado_por, 
+        F.fecha_modificacion, 
+        F.accion
+      FROM 
+        FIDE_PAIS_TB F
+      JOIN 
+        FIDE_ESTADOS_TB E 
+      ON 
+        F.id_estado = E.id_estado
+    `;
+    const result = await connection.execute(query);
+
+    // Verifica los datos obtenidos
+    console.log('Datos obtenidos:', result.rows);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error de conexión o consulta:', err);
+    res.status(500).send('Error al obtener los paises');
+  } finally {
+    // Asegúrate de cerrar la conexión al final
+    if (connection) {
+      try {
+        await connection.close();
+      } catch (closeErr) {
+        console.error('Error al cerrar la conexión:', closeErr);
+      }
+    }
+  }
+});
+
+
+app.post('/pais', async (req, res) => {
+  const { nombre_pais } = req.body; // Obtenemos la descripción desde el cuerpo de la solicitud
+
+  if (!nombre_pais || nombre_pais.trim() === '') {
+    return res.status(400).send('Nombre del pais requerido');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Llamamos al procedimiento almacenado
+    await connection.execute(
+      `BEGIN
+              FIDE_PAIS_TB_INSERT_SP(p_nombre_pais => :nombre_pais);
+           END;`,
+      { nombre_pais }
+    );
+
+    // Confirmamos la transacción
+    await connection.commit();
+    await connection.close();
+
+    res.status(201).send('Pais creado exitosamente');
+  } catch (err) {
+    console.error('Error al insertar el pais:', err);
+    res.status(500).send('Error al insertar el pais');
+  }
+});
+
+
+app.put('/pais/:id', async (req, res) => {
+  const { id } = req.params; // ID del pais
+  const { nombre_pais, nuevo_estado } = req.body;  // El nuevo estado (1 para "Activo", 2 para "Inactivo")
+
+  console.log(`Recibiendo solicitud para actualizar el pais con id: ${id}`);
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar la pais en la tabla FIDE_PAIS_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_PAIS_TB
+       SET nombre_pais = :nombre_pais, id_estado = :nuevo_estado
+       WHERE id_pais = :id`,
+      { nombre_pais, nuevo_estado, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Pais actualizada correctamente');
+  } catch (err) {
+    console.error('Error al actualizar el pais:', err);
+    res.status(500).send('Error al actualizar el pais');
+  }
+});
+
+
+//PROVINCIA
+app.get('/provincia', async (req, res) => {
+  let connection;
+  try {
+    connection = await oracledb.getConnection(dbConfig);
+
+    // Consulta para obtener los datos incluyendo el nombre del estado y país
+    const query = `
+      SELECT 
+        F.id_provincia, 
+        F.nombre_provincia, 
+        P.nombre_pais, 
+        E.nombre_estado, 
+        F.creado_por, 
+        F.fecha_creacion, 
+        F.modificado_por, 
+        F.fecha_modificacion, 
+        F.accion
+      FROM 
+        FIDE_PROVINCIA_TB F
+      JOIN 
+        FIDE_PAIS_TB P 
+      ON 
+        F.id_pais = P.id_pais
+      JOIN 
+        FIDE_ESTADOS_TB E 
+      ON 
+        F.id_estado = E.id_estado
+    `;
+    const result = await connection.execute(query);
+
+    // Verifica los datos obtenidos
+    console.log('Datos obtenidos:', result.rows);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error de conexión o consulta:', err);
+    res.status(500).send('Error al obtener las provincias');
+  } finally {
+    // Asegúrate de cerrar la conexión al final
+    if (connection) {
+      try {
+        await connection.close();
+      } catch (closeErr) {
+        console.error('Error al cerrar la conexión:', closeErr);
+      }
+    }
+  }
+});
+
+
+app.post('/provincia', async (req, res) => {
+  const { id_pais, nombre_provincia } = req.body; // Obtenemos la descripción desde el cuerpo de la solicitud
+
+  if (!id_pais || !nombre_provincia || nombre_provincia.trim() === '') {
+    return res.status(400).send('ID del país y nombre de la provincia son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Llamamos al procedimiento almacenado
+    await connection.execute(
+      `BEGIN
+              FIDE_PROVINCIA_TB_INSERT_SP(p_id_pais => :id_pais, p_nombre_provincia => :nombre_provincia);
+           END;`,
+      { id_pais, nombre_provincia }
+    );
+
+    // Confirmamos la transacción
+    await connection.commit();
+    await connection.close();
+
+    res.status(201).send('Provincia creada exitosamente');
+  } catch (err) {
+    console.error('Error al insertar la provincia:', err);
+    res.status(500).send('Error al insertar la provincia');
+  }
+});
+
+
+app.put('/provincia/:id', async (req, res) => {
+  const { id } = req.params; // ID de la provincia
+  const { nombre_provincia, nuevo_estado } = req.body;  // El nuevo estado (1 para "Activo", 2 para "Inactivo")
+
+  console.log(`Recibiendo solicitud para actualizar la provincia con id: ${id}`);
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar la provincia en la tabla FIDE_PROVINCIA_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_PROVINCIA_TB
+       SET nombre_provincia = :nombre_provincia, id_estado = :nuevo_estado
+       WHERE id_provincia = :id`,
+      { nombre_provincia, nuevo_estado, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Provincia actualizada correctamente');
+  } catch (err) {
+    console.error('Error al actualizar la provincia:', err);
+    res.status(500).send('Error al actualizar la provincia');
+  }
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
