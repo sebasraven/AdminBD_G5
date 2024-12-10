@@ -940,73 +940,110 @@ app.put('/usuarios/:id', async (req, res) => {
   }
 });
 
-//MONEDA
-app.get('/moneda', async (req, res) => {
+//MONEDAS
+app.get('/monedas', async (req, res) => {
   let connection;
   try {
-      connection = await oracledb.getConnection(dbConfig);
+    connection = await oracledb.getConnection(dbConfig);
 
-      const query = `
-          SELECT 
-              M.id_moneda, M.codigo_moneda, M.nombre_moneda, 
-              E.nombre_estado, M.creado_por, M.fecha_creacion, 
-              M.modificado_por, M.fecha_modificacion, M.accion
-          FROM FIDE_MONEDA_TB M
-          JOIN FIDE_ESTADOS_TB E ON M.id_estado = E.id_estado
-      `;
-      const result = await connection.execute(query);
-      res.json(result.rows);
+    // Consulta para obtener los datos incluyendo el nombre del estado
+    const query = `
+      SELECT 
+        M.id_moneda, 
+        M.codigo_moneda, 
+        M.nombre_moneda, 
+        E.nombre_estado
+      FROM 
+        FIDE_MONEDA_TB M
+      JOIN 
+        FIDE_ESTADOS_TB E 
+      ON 
+        M.id_estado = E.id_estado
+    `;
+    const result = await connection.execute(query);
+
+    // Verifica los datos obtenidos
+    console.log('Datos obtenidos:', result.rows);
+
+    res.json(result.rows);
   } catch (err) {
-      console.error('Error al obtener las monedas:', err);
-      res.status(500).send('Error al obtener las monedas');
+    console.error('Error de conexión o consulta:', err);
+    res.status(500).send('Error al obtener las monedas');
   } finally {
-      if (connection) await connection.close();
-  }
-});
-
-app.post('/moneda', async (req, res) => {
-  const { codigo_moneda, nombre_moneda, id_estado } = req.body;
-  try {
-      const connection = await oracledb.getConnection(dbConfig);
-      await connection.execute(
-          `INSERT INTO FIDE_MONEDA_TB (codigo_moneda, nombre_moneda, id_estado, creado_por, accion)
-           VALUES (:codigo_moneda, :nombre_moneda, :id_estado, 'ADMIN', 'INSERT')`,
-          { codigo_moneda, nombre_moneda, id_estado }
-      );
-      await connection.commit();
-      res.status(201).send('Moneda creada');
-  } catch (err) {
-      console.error('Error al insertar moneda:', err);
-      res.status(500).send('Error al insertar moneda');
-  }
-});
-
-app.put('/moneda/:id', async (req, res) => {
-  const { id } = req.params;
-  const { codigo_moneda, nombre_moneda, nuevo_estado } = req.body;
-  try {
-      const connection = await oracledb.getConnection(dbConfig);
-      await connection.execute(
-          `UPDATE FIDE_MONEDA_TB 
-           SET codigo_moneda = :codigo_moneda, nombre_moneda = :nombre_moneda, id_estado = :nuevo_estado 
-           WHERE id_moneda = :id`,
-          { codigo_moneda, nombre_moneda, nuevo_estado, id }
-      );
-      await connection.commit();
-      res.send('Moneda actualizada');
-  } catch (err) {
-      console.error('Error al actualizar moneda:', err);
-     
-      res.status(500).send('Error al actualizar moneda');
+    // Asegúrate de cerrar la conexión al final
+    if (connection) {
+      try {
+        await connection.close();
+      } catch (closeErr) {
+        console.error('Error al cerrar la conexión:', closeErr);
+      }
     }
+  }
 });
 
+app.post('/monedas', async (req, res) => {
+  const { codigo_moneda, nombre_moneda } = req.body;
 
+  if (!codigo_moneda || !nombre_moneda) {
+    return res.status(400).send('Código y nombre de la moneda son requeridos');
+  }
 
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
 
+    // Llamamos al procedimiento almacenado
+    await connection.execute(
+      `BEGIN
+              FIDE_MONEDA_TB_INSERT_SP(p_codigo_moneda => :codigo_moneda, p_nombre_moneda => :nombre_moneda);
+           END;`,
+      { codigo_moneda, nombre_moneda }
+    );
 
+    // Confirmamos la transacción
+    await connection.commit();
+    await connection.close();
 
+    res.status(201).send('Moneda creada exitosamente');
+  } catch (err) {
+    console.error('Error al insertar la moneda:', err);
+    res.status(500).send('Error al insertar la moneda');
+  }
+});
 
+app.put('/monedas/:id', async (req, res) => {
+  const { id } = req.params; // ID de la moneda
+  const { codigo_moneda, nombre_moneda, nuevo_estado } = req.body;
+
+  console.log(`Recibiendo solicitud para actualizar la moneda con id: ${id}`);
+
+  if (!codigo_moneda || !nombre_moneda) {
+    return res.status(400).send('Código y nombre de la moneda son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar la moneda en la tabla FIDE_MONEDA_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_MONEDA_TB
+       SET codigo_moneda = :codigo_moneda, nombre_moneda = :nombre_moneda, id_estado = :nuevo_estado
+       WHERE id_moneda = :id`,
+      { codigo_moneda, nombre_moneda, nuevo_estado, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Moneda actualizada correctamente');
+  } catch (err) {
+    console.error('Error al actualizar la moneda:', err);
+    res.status(500).send('Error al actualizar la moneda');
+  }
+});
 
 
 

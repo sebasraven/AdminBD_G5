@@ -30,11 +30,6 @@
                     <th>Código</th>
                     <th>Nombre</th>
                     <th>Estado</th>
-                    <th>Creado Por</th>
-                    <th>Fecha Creación</th>
-                    <th>Modificado Por</th>
-                    <th>Fecha Modificación</th>
-                    <th>Acción</th>
                     <th>Opciones</th>
                 </tr>
             </thead>
@@ -54,14 +49,14 @@
                 </div>
                 <div class="modal-body">
                     <form id="addCurrencyForm">
-                        <input type="hidden" id="currencyId" />
+                        <input type="hidden" id="currencyId" /> <!-- Para almacenar el ID al editar -->
                         <div class="mb-3">
-                            <label for="editCodigo" class="form-label">Código</label>
-                            <input type="text" class="form-control" id="editCodigo" maxlength="3" required>
+                            <label for="editCodigoMoneda" class="form-label">Código</label>
+                            <input type="text" class="form-control" id="editCodigoMoneda" required>
                         </div>
                         <div class="mb-3">
-                            <label for="editNombre" class="form-label">Nombre</label>
-                            <input type="text" class="form-control" id="editNombre" required>
+                            <label for="editNombreMoneda" class="form-label">Nombre</label>
+                            <input type="text" class="form-control" id="editNombreMoneda" required>
                         </div>
                         <button type="submit" class="btn btn-primary">Guardar</button>
                     </form>
@@ -75,3 +70,4 @@
 </body>
 
 </html>
+
