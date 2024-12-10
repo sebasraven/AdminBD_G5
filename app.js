@@ -440,6 +440,237 @@ app.put('/provincia/:id', async (req, res) => {
 });
 
 
+//CANTON
+app.get('/canton', async (req, res) => {
+  let connection;
+  try {
+    connection = await oracledb.getConnection(dbConfig);
+
+    // Consulta para obtener los datos incluyendo el nombre del estado y provincia
+    const query = `
+      SELECT 
+        F.id_canton, 
+        F.nombre_canton, 
+        P.nombre_provincia, 
+        E.nombre_estado, 
+        F.creado_por, 
+        F.fecha_creacion, 
+        F.modificado_por, 
+        F.fecha_modificacion, 
+        F.accion
+      FROM 
+        FIDE_CANTON_TB F
+      JOIN 
+        FIDE_PROVINCIA_TB P 
+      ON 
+        F.id_provincia = P.id_provincia
+      JOIN 
+        FIDE_ESTADOS_TB E 
+      ON 
+        F.id_estado = E.id_estado
+    `;
+    const result = await connection.execute(query);
+
+    // Verifica los datos obtenidos
+    console.log('Datos obtenidos:', result.rows);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error de conexión o consulta:', err);
+    res.status(500).send('Error al obtener los cantones');
+  } finally {
+    // Asegúrate de cerrar la conexión al final
+    if (connection) {
+      try {
+        await connection.close();
+      } catch (closeErr) {
+        console.error('Error al cerrar la conexión:', closeErr);
+      }
+    }
+  }
+});
+
+
+app.post('/canton', async (req, res) => {
+  const { id_provincia, nombre_canton } = req.body; // Obtenemos la descripción desde el cuerpo de la solicitud
+
+  if (!id_provincia || !nombre_canton || nombre_canton.trim() === '') {
+    return res.status(400).send('ID de la provincia y nombre del cantón son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Llamamos al procedimiento almacenado
+    await connection.execute(
+      `BEGIN
+              FIDE_CANTON_TB_INSERT_SP(p_id_provincia => :id_provincia, p_nombre_canton => :nombre_canton);
+           END;`,
+      { id_provincia, nombre_canton }
+    );
+
+    // Confirmamos la transacción
+    await connection.commit();
+    await connection.close();
+
+    res.status(201).send('Cantón creado exitosamente');
+  } catch (err) {
+    console.error('Error al insertar el cantón:', err);
+    res.status(500).send('Error al insertar el cantón');
+  }
+});
+
+
+app.put('/canton/:id', async (req, res) => {
+  const { id } = req.params; // ID del cantón
+  const { nombre_canton, nuevo_estado } = req.body;  // El nuevo estado (1 para "Activo", 2 para "Inactivo")
+
+  console.log(`Recibiendo solicitud para actualizar el cantón con id: ${id}`);
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar el cantón en la tabla FIDE_CANTON_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_CANTON_TB
+       SET nombre_canton = :nombre_canton, id_estado = :nuevo_estado
+       WHERE id_canton = :id`,
+      { nombre_canton, nuevo_estado, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Cantón actualizado correctamente');
+  } catch (err) {
+    console.error('Error al actualizar el cantón:', err);
+    res.status(500).send('Error al actualizar el cantón');
+  }
+});
+
+
+//DISTRITO
+app.get('/distrito', async (req, res) => {
+  let connection;
+  try {
+    connection = await oracledb.getConnection(dbConfig);
+
+    // Consulta para obtener los datos incluyendo el id_canton
+    const query = `
+      SELECT 
+        F.id_distrito, 
+        F.nombre_distrito, 
+        C.nombre_canton, 
+        E.nombre_estado, 
+        F.creado_por, 
+        F.fecha_creacion, 
+        F.modificado_por, 
+        F.fecha_modificacion, 
+        F.accion,
+        F.id_canton  -- Asegúrate de incluir el id_canton aquí
+      FROM 
+        FIDE_DISTRITO_TB F
+      JOIN 
+        FIDE_CANTON_TB C 
+      ON 
+        F.id_canton = C.id_canton
+      JOIN 
+        FIDE_ESTADOS_TB E 
+      ON 
+        F.id_estado = E.id_estado
+    `;
+    const result = await connection.execute(query);
+
+    // Verifica los datos obtenidos
+    console.log('Datos obtenidos:', result.rows);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error de conexión o consulta:', err);
+    res.status(500).send('Error al obtener los distritos');
+  } finally {
+    // Asegúrate de cerrar la conexión al final
+    if (connection) {
+      try {
+        await connection.close();
+      } catch (closeErr) {
+        console.error('Error al cerrar la conexión:', closeErr);
+      }
+    }
+  }
+});
+
+
+
+app.post('/distrito', async (req, res) => {
+  const { id_canton, nombre_distrito } = req.body; // Obtenemos la descripción desde el cuerpo de la solicitud
+
+  if (!id_canton || !nombre_distrito || nombre_distrito.trim() === '') {
+    return res.status(400).send('ID del cantón y nombre del distrito son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Llamamos al procedimiento almacenado
+    await connection.execute(
+      `BEGIN
+              FIDE_DISTRITO_TB_INSERT_SP(p_id_canton => :id_canton, p_nombre_distrito => :nombre_distrito);
+           END;`,
+      { id_canton, nombre_distrito }
+    );
+
+    // Confirmamos la transacción
+    await connection.commit();
+    await connection.close();
+
+    res.status(201).send('Distrito creado exitosamente');
+  } catch (err) {
+    console.error('Error al insertar el distrito:', err);
+    res.status(500).send('Error al insertar el distrito');
+  }
+});
+
+
+app.put('/distrito/:id', async (req, res) => {
+  const { id } = req.params; // ID del distrito
+  const { nombre_distrito, id_canton, nuevo_estado } = req.body;  // Incluye id_canton para la actualización
+
+  console.log(`Recibiendo solicitud para actualizar el distrito con id: ${id}`);
+  console.log(`ID Cantón recibido en el servidor: ${id_canton}`); // Log para verificar id_canton
+
+  if (!id_canton) {
+    return res.status(400).send('ID del cantón es requerido');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar el distrito en la tabla FIDE_DISTRITO_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_DISTRITO_TB
+       SET nombre_distrito = :nombre_distrito, id_canton = :id_canton, id_estado = :nuevo_estado
+       WHERE id_distrito = :id`,
+      { nombre_distrito, id_canton, nuevo_estado, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Distrito actualizado correctamente');
+  } catch (err) {
+    console.error('Error al actualizar el distrito:', err);
+    res.status(500).send('Error al actualizar el distrito');
+  }
+});
 
 
 
