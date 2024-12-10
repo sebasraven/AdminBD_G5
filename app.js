@@ -2633,6 +2633,351 @@ app.put('/promociones/toggleState/:id', async (req, res) => {
 });
 
 
+// FACTURAS
+app.get('/facturas', async (req, res) => {
+  let connection;
+  try {
+    connection = await oracledb.getConnection(dbConfig);
+    console.log('Conexión a la base de datos establecida.');
+
+    // Consulta para obtener los datos de las facturas incluyendo nombres de monedas, usuarios, impuestos, promociones y estados
+    const query = `
+      SELECT 
+        F.id_factura,
+        M.nombre_moneda,
+        U.nombre as nombre_usuario,
+        I.nombre_impuesto,
+        P.nombre_promocion,
+        E.nombre_estado,
+        PA.nombre_pais,
+        PR.nombre_provincia,
+        C.nombre_canton,
+        D.nombre_distrito,
+        F.subtotal,
+        F.total,
+        F.creado_por,
+        TO_CHAR(F.fecha_creacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_creacion,
+        F.modificado_por,
+        TO_CHAR(F.fecha_modificacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_modificacion,
+        F.accion
+      FROM 
+        FIDE_FACTURAS_TB F
+      JOIN 
+        FIDE_MONEDA_TB M ON F.id_moneda = M.id_moneda
+      JOIN 
+        FIDE_USUARIOS_TB U ON F.id_usuario = U.id_usuario
+      JOIN 
+        FIDE_IMPUESTOS_TB I ON F.id_impuesto = I.id_impuesto
+      LEFT JOIN 
+        FIDE_PROMOCIONES_TB P ON F.id_promocion = P.id_promocion
+      JOIN 
+        FIDE_ESTADOS_TB E ON F.id_estado = E.id_estado
+      LEFT JOIN 
+        FIDE_PAIS_TB PA ON F.id_pais = PA.id_pais
+      LEFT JOIN 
+        FIDE_PROVINCIA_TB PR ON F.id_provincia = PR.id_provincia
+      LEFT JOIN 
+        FIDE_CANTON_TB C ON F.id_canton = C.id_canton
+      LEFT JOIN 
+        FIDE_DISTRITO_TB D ON F.id_distrito = D.id_distrito
+    `;
+    const result = await connection.execute(query);
+
+    // Verifica los datos obtenidos
+    console.log('Datos obtenidos:', result.rows);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error de conexión o consulta:', err);
+    res.status(500).send('Error al obtener las facturas');
+  } finally {
+    // Asegúrate de cerrar la conexión al final
+    if (connection) {
+      try {
+        await connection.close();
+        console.log('Conexión a la base de datos cerrada.');
+      } catch (closeErr) {
+        console.error('Error al cerrar la conexión:', closeErr);
+      }
+    }
+  }
+});
+
+
+app.post('/facturas', async (req, res) => {
+  const { id_moneda, id_usuario, id_impuesto, id_promocion, id_estado, id_pais, id_provincia, id_canton, id_distrito, subtotal, total } = req.body;
+
+  if (!id_moneda || !id_usuario || !id_impuesto || !id_estado || !subtotal || !total) {
+    return res.status(400).send('Todos los campos obligatorios son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Llamar al procedimiento almacenado para insertar los datos principales
+    await connection.execute(
+      `BEGIN
+              FIDE_FACTURAS_TB_INSERT_SP(
+                p_id_moneda => :id_moneda,
+                p_id_usuario => :id_usuario,
+                p_id_impuesto => :id_impuesto,
+                p_subtotal => :subtotal,
+                p_total => :total
+              );
+           END;`,
+      { id_moneda, id_usuario, id_impuesto, subtotal, total }
+    );
+
+    // Recuperar el ID de la última factura insertada
+    const result = await connection.execute(
+      `SELECT ID_FACTURA_SEQ.CURRVAL AS last_id FROM dual`
+    );
+    const lastId = result.rows[0][0];
+
+    // Actualizar valores opcionales
+    await connection.execute(
+      `UPDATE FIDE_FACTURAS_TB
+       SET id_promocion = :id_promocion, id_estado = :id_estado, id_pais = :id_pais, id_provincia = :id_provincia, id_canton = :id_canton, id_distrito = :id_distrito
+       WHERE id_factura = :id`,
+      { id_promocion, id_estado, id_pais, id_provincia, id_canton, id_distrito, id: lastId }
+    );
+
+    // Confirmar la transacción
+    await connection.commit();
+    await connection.close();
+
+    res.status(201).send('Factura creada exitosamente');
+  } catch (err) {
+    console.error('Error al insertar la factura:', err);
+    res.status(500).send('Error al insertar la factura');
+  }
+});
+
+
+app.put('/facturas/:id', async (req, res) => {
+  const { id } = req.params; // ID de la factura
+  const { id_moneda, id_usuario, id_impuesto, id_promocion, id_estado, id_pais, id_provincia, id_canton, id_distrito, subtotal, total } = req.body;
+
+  console.log(`Recibiendo solicitud para actualizar la factura con id: ${id}`);
+
+  if (!id_moneda || !id_usuario || !id_impuesto || !id_estado || !subtotal || !total) {
+    return res.status(400).send('Todos los campos obligatorios son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar la factura en la tabla FIDE_FACTURAS_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_FACTURAS_TB
+       SET id_moneda = :id_moneda, id_usuario = :id_usuario, id_impuesto = :id_impuesto, id_promocion = :id_promocion, id_estado = :id_estado, id_pais = :id_pais, id_provincia = :id_provincia, id_canton = :id_canton, id_distrito = :id_distrito, subtotal = :subtotal, total = :total
+       WHERE id_factura = :id`,
+      { id_moneda, id_usuario, id_impuesto, id_promocion, id_estado, id_pais, id_provincia, id_canton, id_distrito, subtotal, total, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Factura actualizada correctamente');
+  } catch (err) {
+    console.error('Error al actualizar la factura:', err);
+    res.status(500).send('Error al actualizar la factura');
+  }
+});
+
+app.put('/facturas/toggleState/:id', async (req, res) => {
+  const { id } = req.params; // ID de la factura
+  const { newState } = req.body;
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar el estado de la factura en la tabla FIDE_FACTURAS_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_FACTURAS_TB
+       SET id_estado = (SELECT id_estado FROM FIDE_ESTADOS_TB WHERE nombre_estado = :newState)
+       WHERE id_factura = :id`,
+      { newState, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Estado de la factura actualizado correctamente');
+  } catch (err) {
+    console.error('Error al actualizar el estado de la factura:', err);
+    res.status(500).send('Error al actualizar el estado de la factura');
+  }
+});
+
+
+// DETALLE_FACTURAS
+app.get('/detalle_facturas', async (req, res) => {
+  let connection;
+  try {
+    connection = await oracledb.getConnection(dbConfig);
+
+    // Consulta para obtener los datos de los detalles de facturas
+    const query = `
+      SELECT 
+        DF.id_detalle_factura,
+        DF.id_factura,
+        DF.id_reservacion,
+        DF.id_promocion,
+        M.nombre_moneda,
+        E.nombre_estado,
+        DF.cantidad,
+        DF.total_linea,
+        DF.creado_por,
+        TO_CHAR(DF.fecha_creacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_creacion,
+        DF.modificado_por,
+        TO_CHAR(DF.fecha_modificacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_modificacion,
+        DF.accion
+      FROM 
+        FIDE_DETALLE_FACTURA_TB DF
+      JOIN 
+        FIDE_MONEDA_TB M ON DF.id_moneda = M.id_moneda
+      JOIN 
+        FIDE_ESTADOS_TB E ON DF.id_estado = E.id_estado
+    `;
+    const result = await connection.execute(query);
+
+    // Verifica los datos obtenidos
+    console.log('Datos obtenidos:', result.rows);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error de conexión o consulta:', err);
+    res.status(500).send('Error al obtener los detalles de las facturas');
+  } finally {
+    // Asegúrate de cerrar la conexión al final
+    if (connection) {
+      try {
+        await connection.close();
+      } catch (closeErr) {
+        console.error('Error al cerrar la conexión:', closeErr);
+      }
+    }
+  }
+});
+
+app.post('/detalle_facturas', async (req, res) => {
+  const { id_factura, id_reservacion, id_promocion, id_moneda, cantidad, total_linea } = req.body;
+
+  if (!id_factura || !id_reservacion || !id_moneda || !cantidad || !total_linea) {
+    return res.status(400).send('Todos los campos obligatorios son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Llamar al procedimiento almacenado para insertar los datos principales
+    await connection.execute(
+      `BEGIN
+              FIDE_DETALLE_FACTURA_TB_INSERT_SP(
+                p_id_factura => :id_factura,
+                p_id_reservacion => :id_reservacion,
+                p_id_promocion => :id_promocion,
+                p_id_moneda => :id_moneda,
+                p_cantidad => :cantidad,
+                p_total_linea => :total_linea
+              );
+           END;`,
+      { id_factura, id_reservacion, id_promocion, id_moneda, cantidad, total_linea }
+    );
+
+    // Recuperar el ID del último detalle de factura insertado
+    const result = await connection.execute(
+      `SELECT ID_DETALLE_FACTURA_SEQ.CURRVAL AS last_id FROM dual`
+    );
+    const lastId = result.rows[0][0];
+
+    // Confirmar la transacción
+    await connection.commit();
+    await connection.close();
+
+    res.status(201).send('Detalle de factura creado exitosamente');
+  } catch (err) {
+    console.error('Error al insertar el detalle de factura:', err);
+    res.status(500).send('Error al insertar el detalle de factura');
+  }
+});
+
+app.put('/detalle_facturas/:id', async (req, res) => {
+  const { id } = req.params; // ID del detalle de factura
+  const { id_factura, id_reservacion, id_promocion, id_moneda, cantidad, total_linea } = req.body;
+
+  console.log(`Recibiendo solicitud para actualizar el detalle de factura con id: ${id}`);
+
+  if (!id_factura || !id_reservacion || !id_moneda || !cantidad || !total_linea) {
+    return res.status(400).send('Todos los campos obligatorios son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar el detalle de factura en la tabla FIDE_DETALLE_FACTURA_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_DETALLE_FACTURA_TB
+       SET id_factura = :id_factura, id_reservacion = :id_reservacion, id_promocion = :id_promocion, id_moneda = :id_moneda, cantidad = :cantidad, total_linea = :total_linea
+       WHERE id_detalle_factura = :id`,
+      { id_factura, id_reservacion, id_promocion, id_moneda, cantidad, total_linea, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Detalle de factura actualizado correctamente');
+  } catch (err) {
+    console.error('Error al actualizar el detalle de factura:', err);
+    res.status(500).send('Error al actualizar el detalle de factura');
+  }
+});
+
+app.put('/detalle_facturas/toggleState/:id', async (req, res) => {
+  const { id } = req.params; // ID del detalle de factura
+  const { newState } = req.body;
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar el estado del detalle de factura en la tabla FIDE_DETALLE_FACTURA_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_DETALLE_FACTURA_TB
+       SET id_estado = (SELECT id_estado FROM FIDE_ESTADOS_TB WHERE nombre_estado = :newState)
+       WHERE id_detalle_factura = :id`,
+      { newState, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Estado del detalle de factura actualizado correctamente');
+  } catch (err) {
+    console.error('Error al actualizar el estado del detalle de factura:', err);
+    res.status(500).send('Error al actualizar el estado del detalle de factura');
+  }
+});
+
+
+
+
 
 
 
