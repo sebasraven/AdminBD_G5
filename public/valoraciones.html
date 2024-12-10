@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Valoraciones</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="index.html">Admin Panel</a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container mt-5">
+        <h1 class="text-center">Gestión de Valoraciones</h1>
+        <div class="mb-3 text-end">
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addRatingModal">Agregar Valoración</button>
+        </div>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Comentario</th>
+                    <th>Valoración</th>
+                    <th>Timestamp</th>
+                    <th>Estado</th>
+                    <th>Creado Por</th>
+                    <th>Fecha Creación</th>
+                    <th>Modificado Por</th>
+                    <th>Fecha Modificación</th>
+                    <th>Acción</th>
+                    <th>Opciones</th>
+                </tr>
+            </thead>
+            <tbody id="ratingTableBody">
+                <!-- Los datos se cargarán dinámicamente -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Modal para Agregar/Editar Valoración -->
+    <div class="modal fade" id="addRatingModal" tabindex="-1" aria-labelledby="addRatingModalLabel">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addRatingModalLabel">Agregar Valoración</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addRatingForm">
+                        <input type="hidden" id="ratingId" /> <!-- Para almacenar el ID al editar -->
+                        <div class="mb-3">
+                            <label for="editComentario" class="form-label">Comentario</label>
+                            <textarea class="form-control" id="editComentario" rows="3" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editValoracion" class="form-label">Valoración</label>
+                            <input type="number" class="form-control" id="editValoracion" min="1" max="5" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editTimestamp" class="form-label">Timestamp</label>
+                            <input type="datetime-local" class="form-control" id="editTimestamp" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Guardar</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="valoraciones.js"></script>
+</body>
+
+</html>

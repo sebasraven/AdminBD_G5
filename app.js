@@ -1804,11 +1804,833 @@ app.put('/limpieza_habitaciones/toggleState/:id', async (req, res) => {
 });
 
 
+// VALORACIONES
+app.get('/valoraciones', async (req, res) => {
+  let connection;
+  try {
+    connection = await oracledb.getConnection(dbConfig);
+
+    // Consulta para obtener los datos de las valoraciones incluyendo el estado
+    const query = `
+      SELECT 
+        V.id_valoracion, 
+        V.comentario, 
+        V.valoracion, 
+        TO_CHAR(V.timestamp, 'YYYY-MM-DD HH24:MI:SS') AS timestamp, 
+        E.nombre_estado, 
+        V.creado_por, 
+        V.fecha_creacion, 
+        V.modificado_por, 
+        V.fecha_modificacion, 
+        V.accion
+      FROM 
+        FIDE_VALORACION_TB V
+      JOIN 
+        FIDE_ESTADOS_TB E 
+      ON 
+        V.id_estado = E.id_estado
+    `;
+    const result = await connection.execute(query);
+
+    // Verifica los datos obtenidos
+    console.log('Datos obtenidos:', result.rows);
+
+    // Leer el contenido de los CLOBs
+    const formattedResult = await Promise.all(result.rows.map(async row => {
+      const comentario = await row[1].getData();
+      return {
+        id_valoracion: row[0],
+        comentario,
+        valoracion: row[2],
+        timestamp: row[3],
+        nombre_estado: row[4],
+        creado_por: row[5],
+        fecha_creacion: row[6],
+        modificado_por: row[7],
+        fecha_modificacion: row[8],
+        accion: row[9]
+      };
+    }));
+
+    res.json(formattedResult);
+  } catch (err) {
+    console.error('Error de conexión o consulta:', err);
+    res.status(500).send('Error al obtener las valoraciones');
+  } finally {
+    // Asegúrate de cerrar la conexión al final
+    if (connection) {
+      try {
+        await connection.close();
+      } catch (closeErr) {
+        console.error('Error al cerrar la conexión:', closeErr);
+      }
+    }
+  }
+});
+
+app.post('/valoraciones', async (req, res) => {
+  const { comentario, valoracion, timestamp } = req.body;
+
+  if (!comentario || !valoracion || !timestamp) {
+    return res.status(400).send('Todos los campos son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Llamar al procedimiento almacenado para insertar los datos principales
+    await connection.execute(
+      `BEGIN
+              FIDE_VALORACION_TB_INSERT_SP(p_comentario => :comentario, p_valoracion => :valoracion, p_timestamp => TO_TIMESTAMP(:timestamp, 'YYYY-MM-DD"T"HH24:MI'));
+           END;`,
+      { comentario, valoracion, timestamp }
+    );
+
+    // Recuperar el ID de la última valoración insertada
+    const result = await connection.execute(
+      `SELECT ID_VALORACION_SEQ.CURRVAL AS last_id FROM dual`
+    );
+    const lastId = result.rows[0][0];
+
+    // Confirmar la transacción
+    await connection.commit();
+    await connection.close();
+
+    res.status(201).send('Valoración creada exitosamente');
+  } catch (err) {
+    console.error('Error al insertar la valoración:', err);
+    res.status(500).send('Error al insertar la valoración');
+  }
+});
+
+app.put('/valoraciones/:id', async (req, res) => {
+  const { id } = req.params; // ID de la valoración
+  const { comentario, valoracion, timestamp } = req.body;
+
+  console.log(`Recibiendo solicitud para actualizar la valoración con id: ${id}`);
+
+  if (!comentario || !valoracion || !timestamp) {
+    return res.status(400).send('Todos los campos son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar la valoración en la tabla FIDE_VALORACION_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_VALORACION_TB
+       SET comentario = :comentario, valoracion = :valoracion, timestamp = TO_TIMESTAMP(:timestamp, 'YYYY-MM-DD"T"HH24:MI')
+       WHERE id_valoracion = :id`,
+      { comentario, valoracion, timestamp, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Valoración actualizada correctamente');
+  } catch (err) {
+    console.error('Error al actualizar la valoración:', err);
+    res.status(500).send('Error al actualizar la valoración');
+  }
+});
+
+app.put('/valoraciones/toggleState/:id', async (req, res) => {
+  const { id } = req.params; // ID de la valoración
+  const { newState } = req.body;
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar el estado de la valoración en la tabla FIDE_VALORACION_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_VALORACION_TB
+       SET id_estado = (SELECT id_estado FROM FIDE_ESTADOS_TB WHERE nombre_estado = :newState)
+       WHERE id_valoracion = :id`,
+      { newState, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Estado de la valoración actualizado correctamente');
+  } catch (err) {
+    console.error('Error al actualizar el estado de la valoración:', err);
+    res.status(500).send('Error al actualizar el estado de la valoración');
+  }
+});
+
+
+// CATEGORIA RESERVAS
+app.get('/categoria_reservas', async (req, res) => {
+  let connection;
+  try {
+    connection = await oracledb.getConnection(dbConfig);
+
+    // Consulta para obtener los datos de las categorías de reservas incluyendo el estado
+    const query = `
+      SELECT 
+        C.id_categoria, 
+        C.nombre_categoria, 
+        C.comentarios, 
+        E.nombre_estado, 
+        C.creado_por, 
+        C.fecha_creacion, 
+        C.modificado_por, 
+        C.fecha_modificacion, 
+        C.accion
+      FROM 
+        FIDE_CATEGORIA_RESERVAS_TB C
+      JOIN 
+        FIDE_ESTADOS_TB E 
+      ON 
+        C.id_estado = E.id_estado
+    `;
+    const result = await connection.execute(query);
+
+    // Verifica los datos obtenidos
+    console.log('Datos obtenidos:', result.rows);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error de conexión o consulta:', err);
+    res.status(500).send('Error al obtener las categorías de reservas');
+  } finally {
+    // Asegúrate de cerrar la conexión al final
+    if (connection) {
+      try {
+        await connection.close();
+      } catch (closeErr) {
+        console.error('Error al cerrar la conexión:', closeErr);
+      }
+    }
+  }
+});
+
+app.post('/categoria_reservas', async (req, res) => {
+  const { nombre_categoria, comentarios } = req.body;
+
+  if (!nombre_categoria || !comentarios) {
+    return res.status(400).send('Todos los campos son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Llamar al procedimiento almacenado para insertar los datos principales
+    await connection.execute(
+      `BEGIN
+              FIDE_CATEGORIA_RESERVAS_TB_INSERT_SP(p_nombre_categoria => :nombre_categoria, p_comentarios => :comentarios);
+           END;`,
+      { nombre_categoria, comentarios }
+    );
+
+    // Recuperar el ID de la última categoría insertada
+    const result = await connection.execute(
+      `SELECT ID_CATEGORIA_SEQ.CURRVAL AS last_id FROM dual`
+    );
+    const lastId = result.rows[0][0];
+
+    // Confirmar la transacción
+    await connection.commit();
+    await connection.close();
+
+    res.status(201).send('Categoría creada exitosamente');
+  } catch (err) {
+    console.error('Error al insertar la categoría:', err);
+    res.status(500).send('Error al insertar la categoría');
+  }
+});
+
+app.put('/categoria_reservas/:id', async (req, res) => {
+  const { id } = req.params; // ID de la categoría
+  const { nombre_categoria, comentarios } = req.body;
+
+  console.log(`Recibiendo solicitud para actualizar la categoría con id: ${id}`);
+
+  if (!nombre_categoria || !comentarios) {
+    return res.status(400).send('Todos los campos son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar la categoría en la tabla FIDE_CATEGORIA_RESERVAS_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_CATEGORIA_RESERVAS_TB
+       SET nombre_categoria = :nombre_categoria, comentarios = :comentarios
+       WHERE id_categoria = :id`,
+      { nombre_categoria, comentarios, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Categoría actualizada correctamente');
+  } catch (err) {
+    console.error('Error al actualizar la categoría:', err);
+    res.status(500).send('Error al actualizar la categoría');
+  }
+});
+
+app.put('/categoria_reservas/toggleState/:id', async (req, res) => {
+  const { id } = req.params; // ID de la categoría
+  const { newState } = req.body;
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar el estado de la categoría en la tabla FIDE_CATEGORIA_RESERVAS_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_CATEGORIA_RESERVAS_TB
+       SET id_estado = (SELECT id_estado FROM FIDE_ESTADOS_TB WHERE nombre_estado = :newState)
+       WHERE id_categoria = :id`,
+      { newState, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Estado de la categoría actualizado correctamente');
+  } catch (err) {
+    console.error('Error al actualizar el estado de la categoría:', err);
+    res.status(500).send('Error al actualizar el estado de la categoría');
+  }
+});
+
+
+// RESERVAS
+app.get('/reservas', async (req, res) => {
+  let connection;
+  try {
+    connection = await oracledb.getConnection(dbConfig);
+
+    // Consulta para obtener los datos de las reservas incluyendo los nombres de los usuarios, hoteles, categorías, habitaciones, valoraciones, monedas y estados
+    const query = `
+      SELECT 
+        R.id_reservacion, 
+        U.nombre AS nombre_usuario, 
+        H.nombre_hotel, 
+        C.nombre_categoria, 
+        HA.numero_habitacion, 
+        V.valoracion, 
+        M.nombre_moneda, 
+        E.nombre_estado, 
+        TO_CHAR(R.fecha_inicio, 'YYYY-MM-DD') AS fecha_inicio, 
+        TO_CHAR(R.fecha_cierre, 'YYYY-MM-DD') AS fecha_cierre, 
+        TO_CHAR(R.hora, 'YYYY-MM-DD HH24:MI:SS') AS hora, 
+        R.precio_unitario, 
+        R.nombre, 
+        R.descripcion, 
+        R.creado_por, 
+        TO_CHAR(R.fecha_creacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_creacion, 
+        R.modificado_por, 
+        TO_CHAR(R.fecha_modificacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_modificacion, 
+        R.accion
+      FROM 
+        FIDE_RESERVAS_TB R
+      JOIN 
+        FIDE_USUARIOS_TB U ON R.id_usuario = U.id_usuario
+      JOIN 
+        FIDE_HOTELES_TB H ON R.id_hotel = H.id_hotel
+      JOIN 
+        FIDE_CATEGORIA_RESERVAS_TB C ON R.id_categoria = C.id_categoria
+      JOIN 
+        FIDE_HABITACIONES_TB HA ON R.id_habitacion = HA.id_habitacion
+      JOIN 
+        FIDE_VALORACION_TB V ON R.id_valoracion = V.id_valoracion
+      JOIN 
+        FIDE_MONEDA_TB M ON R.id_moneda = M.id_moneda
+      JOIN 
+        FIDE_ESTADOS_TB E ON R.id_estado = E.id_estado
+    `;
+    const result = await connection.execute(query);
+
+    // Verifica los datos obtenidos
+    console.log('Datos obtenidos:', result.rows);
+
+    // Leer el contenido de los CLOBs y formatear el resultado
+    const formattedResult = await Promise.all(result.rows.map(async row => {
+      const descripcion = await row[13].getData();
+      return {
+        id_reservacion: row[0],
+        nombre_usuario: row[1],
+        nombre_hotel: row[2],
+        nombre_categoria: row[3],
+        numero_habitacion: row[4],
+        valoracion: row[5],
+        nombre_moneda: row[6],
+        nombre_estado: row[7],
+        fecha_inicio: row[8],
+        fecha_cierre: row[9],
+        hora: row[10],
+        precio_unitario: row[11],
+        nombre: row[12],
+        descripcion,
+        creado_por: row[14],
+        fecha_creacion: row[15],
+        modificado_por: row[16],
+        fecha_modificacion: row[17],
+        accion: row[18]
+      };
+    }));
+
+    res.json(formattedResult);
+  } catch (err) {
+    console.error('Error de conexión o consulta:', err);
+    res.status(500).send('Error al obtener las reservas');
+  } finally {
+    // Asegúrate de cerrar la conexión al final
+    if (connection) {
+      try {
+        await connection.close();
+      } catch (closeErr) {
+        console.error('Error al cerrar la conexión:', closeErr);
+      }
+    }
+  }
+});
+
+app.post('/reservas', async (req, res) => {
+  const { id_usuario, id_hotel, id_categoria, id_habitacion, id_valoracion, id_moneda, fecha_inicio, fecha_cierre, hora, precio_unitario, nombre, descripcion } = req.body;
+
+  if (!id_usuario || !id_hotel || !id_categoria || !id_habitacion || !id_valoracion || !id_moneda || !fecha_inicio || !fecha_cierre || !hora || !precio_unitario || !nombre || !descripcion) {
+    return res.status(400).send('Todos los campos son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Llamar al procedimiento almacenado para insertar los datos principales
+    await connection.execute(
+      `BEGIN
+              FIDE_RESERVAS_TB_INSERT_SP(
+                p_id_usuario => :id_usuario,
+                p_id_hotel => :id_hotel,
+                p_id_categoria => :id_categoria,
+                p_id_habitacion => :id_habitacion,
+                p_id_valoracion => :id_valoracion,
+                p_id_moneda => :id_moneda,
+                p_fecha_inicio => TO_DATE(:fecha_inicio, 'YYYY-MM-DD'),
+                p_fecha_cierre => TO_DATE(:fecha_cierre, 'YYYY-MM-DD'),
+                p_hora => TO_TIMESTAMP(:hora, 'YYYY-MM-DD"T"HH24:MI:SS'),
+                p_precio_unitario => :precio_unitario,
+                p_nombre => :nombre,
+                p_descripcion => :descripcion
+              );
+           END;`,
+      { id_usuario, id_hotel, id_categoria, id_habitacion, id_valoracion, id_moneda, fecha_inicio, fecha_cierre, hora, precio_unitario, nombre, descripcion }
+    );
+
+    // Recuperar el ID de la última reserva insertada
+    const result = await connection.execute(
+      `SELECT ID_RESERVACION_SEQ.CURRVAL AS last_id FROM dual`
+    );
+    const lastId = result.rows[0][0];
+
+    // Confirmar la transacción
+    await connection.commit();
+    await connection.close();
+
+    res.status(201).send('Reserva creada exitosamente');
+  } catch (err) {
+    console.error('Error al insertar la reserva:', err);
+    res.status(500).send('Error al insertar la reserva');
+  }
+});
+
+app.put('/reservas/:id', async (req, res) => {
+  const { id } = req.params; // ID de la reserva
+  const { id_usuario, id_hotel, id_categoria, id_habitacion, id_valoracion, id_moneda, fecha_inicio, fecha_cierre, hora, precio_unitario, nombre, descripcion } = req.body;
+
+  console.log(`Recibiendo solicitud para actualizar la reserva con id: ${id}`);
+
+  if (!id_usuario || !id_hotel || !id_categoria || !id_habitacion || !id_valoracion || !id_moneda || !fecha_inicio || !fecha_cierre || !hora || !precio_unitario || !nombre || !descripcion) {
+    return res.status(400).send('Todos los campos son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar la reserva en la tabla FIDE_RESERVAS_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_RESERVAS_TB
+       SET id_usuario = :id_usuario, id_hotel = :id_hotel, id_categoria = :id_categoria, id_habitacion = :id_habitacion, id_valoracion = :id_valoracion, id_moneda = :id_moneda, fecha_inicio = TO_DATE(:fecha_inicio, 'YYYY-MM-DD'), fecha_cierre = TO_DATE(:fecha_cierre, 'YYYY-MM-DD'), hora = TO_TIMESTAMP(:hora, 'YYYY-MM-DD"T"HH24:MI:SS'), precio_unitario = :precio_unitario, nombre = :nombre, descripcion = :descripcion
+       WHERE id_reservacion = :id`,
+      { id_usuario, id_hotel, id_categoria, id_habitacion, id_valoracion, id_moneda, fecha_inicio, fecha_cierre, hora, precio_unitario, nombre, descripcion, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Reserva actualizada correctamente');
+  } catch (err) {
+    console.error('Error al actualizar la reserva:', err);
+    res.status(500).send('Error al actualizar la reserva');
+  }
+});
+
+app.put('/reservas/toggleState/:id', async (req, res) => {
+  const { id } = req.params; // ID de la reserva
+  const { newState } = req.body;
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar el estado de la reserva en la tabla FIDE_RESERVAS_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_RESERVAS_TB
+       SET id_estado = (SELECT id_estado FROM FIDE_ESTADOS_TB WHERE nombre_estado = :newState)
+       WHERE id_reservacion = :id`,
+      { newState, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Estado de la reserva actualizado correctamente');
+  } catch (err) {
+    console.error('Error al actualizar el estado de la reserva:', err);
+    res.status(500).send('Error al actualizar el estado de la reserva');
+  }
+});
 
 
 
+// TIPO DE PROMOCION
+app.get('/tipo_promocion', async (req, res) => {
+  let connection;
+  try {
+    connection = await oracledb.getConnection(dbConfig);
+
+    // Consulta para obtener los datos de los tipos de promoción incluyendo el estado
+    const query = `
+      SELECT 
+        TP.id_tipo_promocion, 
+        TP.nombre, 
+        TP.descripcion, 
+        E.nombre_estado, 
+        TP.creado_por, 
+        TP.fecha_creacion, 
+        TP.modificado_por, 
+        TP.fecha_modificacion, 
+        TP.accion
+      FROM 
+        FIDE_TIPO_PROMOCION_TB TP
+      JOIN 
+        FIDE_ESTADOS_TB E 
+      ON 
+        TP.id_estado = E.id_estado
+    `;
+    const result = await connection.execute(query);
+
+    // Verifica los datos obtenidos
+    console.log('Datos obtenidos:', result.rows);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error de conexión o consulta:', err);
+    res.status(500).send('Error al obtener los tipos de promoción');
+  } finally {
+    // Asegúrate de cerrar la conexión al final
+    if (connection) {
+      try {
+        await connection.close();
+      } catch (closeErr) {
+        console.error('Error al cerrar la conexión:', closeErr);
+      }
+    }
+  }
+});
+
+app.post('/tipo_promocion', async (req, res) => {
+  const { nombre, descripcion } = req.body;
+
+  if (!nombre || !descripcion) {
+    return res.status(400).send('Todos los campos son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Llamar al procedimiento almacenado para insertar los datos principales
+    await connection.execute(
+      `BEGIN
+              FIDE_TIPO_PROMOCION_TB_INSERT_SP(p_nombre => :nombre, p_descripcion => :descripcion);
+           END;`,
+      { nombre, descripcion }
+    );
+
+    // Recuperar el ID del último tipo de promoción insertado
+    const result = await connection.execute(
+      `SELECT ID_TIPO_PROMOCION_SEQ.CURRVAL AS last_id FROM dual`
+    );
+    const lastId = result.rows[0][0];
+
+    // Confirmar la transacción
+    await connection.commit();
+    await connection.close();
+
+    res.status(201).send('Tipo de Promoción creado exitosamente');
+  } catch (err) {
+    console.error('Error al insertar el tipo de promoción:', err);
+    res.status(500).send('Error al insertar el tipo de promoción');
+  }
+});
+
+app.put('/tipo_promocion/:id', async (req, res) => {
+  const { id } = req.params; // ID del tipo de promoción
+  const { nombre, descripcion } = req.body;
+
+  console.log(`Recibiendo solicitud para actualizar el tipo de promoción con id: ${id}`);
+
+  if (!nombre || !descripcion) {
+    return res.status(400).send('Todos los campos son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar el tipo de promoción en la tabla FIDE_TIPO_PROMOCION_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_TIPO_PROMOCION_TB
+       SET nombre = :nombre, descripcion = :descripcion
+       WHERE id_tipo_promocion = :id`,
+      { nombre, descripcion, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Tipo de Promoción actualizado correctamente');
+  } catch (err) {
+    console.error('Error al actualizar el tipo de promoción:', err);
+    res.status(500).send('Error al actualizar el tipo de promoción');
+  }
+});
+
+app.put('/tipo_promocion/toggleState/:id', async (req, res) => {
+  const { id } = req.params; // ID del tipo de promoción
+  const { newState } = req.body;
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar el estado del tipo de promoción en la tabla FIDE_TIPO_PROMOCION_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_TIPO_PROMOCION_TB
+       SET id_estado = (SELECT id_estado FROM FIDE_ESTADOS_TB WHERE nombre_estado = :newState)
+       WHERE id_tipo_promocion = :id`,
+      { newState, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Estado del tipo de promoción actualizado correctamente');
+  } catch (err) {
+    console.error('Error al actualizar el estado del tipo de promoción:', err);
+    res.status(500).send('Error al actualizar el estado del tipo de promoción');
+  }
+});
 
 
+// PROMOCIONES
+app.get('/promociones', async (req, res) => {
+  let connection;
+  try {
+    connection = await oracledb.getConnection(dbConfig);
+
+    // Consulta para obtener los datos de las promociones incluyendo nombres de tipo de promoción, reservaciones, monedas y estados
+    const query = `
+      SELECT 
+        P.id_promocion,
+        TP.nombre AS tipo_promocion,
+        R.nombre AS nombre_reservacion,
+        M.nombre_moneda,
+        P.descripcion,
+        P.nombre_promocion,
+        TO_CHAR(P.fecha_inicio, 'YYYY-MM-DD') AS fecha_inicio,
+        TO_CHAR(P.fecha_fin, 'YYYY-MM-DD') AS fecha_fin,
+        P.porcentaje_promocion,
+        P.descuento,
+        E.nombre_estado,
+        P.creado_por,
+        TO_CHAR(P.fecha_creacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_creacion,
+        P.modificado_por,
+        TO_CHAR(P.fecha_modificacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_modificacion,
+        P.accion
+      FROM 
+        FIDE_PROMOCIONES_TB P
+      JOIN 
+        FIDE_TIPO_PROMOCION_TB TP ON P.id_tipo_promocion = TP.id_tipo_promocion
+      JOIN 
+        FIDE_RESERVAS_TB R ON P.id_reservacion = R.id_reservacion
+      JOIN 
+        FIDE_MONEDA_TB M ON P.id_moneda = M.id_moneda
+      JOIN 
+        FIDE_ESTADOS_TB E ON P.id_estado = E.id_estado
+    `;
+    const result = await connection.execute(query);
+
+    // Verifica los datos obtenidos
+    console.log('Datos obtenidos:', result.rows);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error de conexión o consulta:', err);
+    res.status(500).send('Error al obtener las promociones');
+  } finally {
+    // Asegúrate de cerrar la conexión al final
+    if (connection) {
+      try {
+        await connection.close();
+      } catch (closeErr) {
+        console.error('Error al cerrar la conexión:', closeErr);
+      }
+    }
+  }
+});
+
+app.post('/promociones', async (req, res) => {
+  const { id_tipo_promocion, id_reservacion, id_moneda, descripcion, nombre_promocion, fecha_inicio, fecha_fin, porcentaje_promocion, descuento } = req.body;
+
+  if (!id_tipo_promocion || !id_reservacion || !id_moneda || !descripcion || !nombre_promocion || !fecha_inicio || !fecha_fin || (!porcentaje_promocion && !descuento)) {
+    return res.status(400).send('Todos los campos son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Llamar al procedimiento almacenado para insertar los datos principales
+    await connection.execute(
+      `BEGIN
+              FIDE_PROMOCIONES_TB_INSERT_SP(
+                p_id_tipo_promocion => :id_tipo_promocion,
+                p_id_reservacion => :id_reservacion,
+                p_id_moneda => :id_moneda,
+                p_descripcion => :descripcion,
+                p_nombre_promocion => :nombre_promocion,
+                p_fecha_inicio => TO_DATE(:fecha_inicio, 'YYYY-MM-DD'),
+                p_fecha_fin => TO_DATE(:fecha_fin, 'YYYY-MM-DD'),
+                p_porcentaje_promocion => :porcentaje_promocion,
+                p_descuento => :descuento
+              );
+           END;`,
+      { id_tipo_promocion, id_reservacion, id_moneda, descripcion, nombre_promocion, fecha_inicio, fecha_fin, porcentaje_promocion, descuento }
+    );
+
+    // Recuperar el ID de la última promoción insertada
+    const result = await connection.execute(
+      `SELECT ID_PROMOCION_SEQ.CURRVAL AS last_id FROM dual`
+    );
+    const lastId = result.rows[0][0];
+
+    // Confirmar la transacción
+    await connection.commit();
+    await connection.close();
+
+    res.status(201).send('Promoción creada exitosamente');
+  } catch (err) {
+    console.error('Error al insertar la promoción:', err);
+    res.status(500).send('Error al insertar la promoción');
+  }
+});
+
+app.put('/promociones/:id', async (req, res) => {
+  const { id } = req.params; // ID de la promoción
+  const { id_tipo_promocion, id_reservacion, id_moneda, descripcion, nombre_promocion, fecha_inicio, fecha_fin, porcentaje_promocion, descuento } = req.body;
+
+  console.log(`Recibiendo solicitud para actualizar la promoción con id: ${id}`);
+
+  if (!id_tipo_promocion || !id_reservacion || !id_moneda || !descripcion || !nombre_promocion || !fecha_inicio || !fecha_fin || (!porcentaje_promocion && !descuento)) {
+    return res.status(400).send('Todos los campos son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar la promoción en la tabla FIDE_PROMOCIONES_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_PROMOCIONES_TB
+       SET id_tipo_promocion = :id_tipo_promocion, id_reservacion = :id_reservacion, id_moneda = :id_moneda, descripcion = :descripcion, nombre_promocion = :nombre_promocion, fecha_inicio = TO_DATE(:fecha_inicio, 'YYYY-MM-DD'), fecha_fin = TO_DATE(:fecha_fin, 'YYYY-MM-DD'), porcentaje_promocion = :porcentaje_promocion, descuento = :descuento
+       WHERE id_promocion = :id`,
+      { id_tipo_promocion, id_reservacion, id_moneda, descripcion, nombre_promocion, fecha_inicio, fecha_fin, porcentaje_promocion, descuento, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Promoción actualizada correctamente');
+  } catch (err) {
+    console.error('Error al actualizar la promoción:', err);
+    res.status(500).send('Error al actualizar la promoción');
+  }
+});
+
+app.put('/promociones/toggleState/:id', async (req, res) => {
+  const { id } = req.params; // ID de la promoción
+  const { newState } = req.body;
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar el estado de la promoción en la tabla FIDE_PROMOCIONES_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_PROMOCIONES_TB
+       SET id_estado = (SELECT id_estado FROM FIDE_ESTADOS_TB WHERE nombre_estado = :newState)
+       WHERE id_promocion = :id`,
+      { newState, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Estado de la promoción actualizado correctamente');
+  } catch (err) {
+    console.error('Error al actualizar el estado de la promoción:', err);
+    res.status(500).send('Error al actualizar el estado de la promoción');
+  }
+});
 
 
 
