@@ -126,5 +126,15 @@ const toggleState = async (id_nacionalidad, estado_actual, descripcion) => {
 
 
 
+
+
+
+
+
+
+
+
+
+
 // Inicializar carga de estados
 document.addEventListener('DOMContentLoaded', loadNationalities);
