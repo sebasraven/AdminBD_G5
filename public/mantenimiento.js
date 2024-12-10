@@ -30,7 +30,7 @@ const loadMaintenances = async () => {
 
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td>${id_mantenimiento}</td>
+                    
                     <td>${habitacion_formateada}</td>
                     <td>${tipo_mantenimiento}</td>
                     <td>${fecha_mantenimiento}</td>

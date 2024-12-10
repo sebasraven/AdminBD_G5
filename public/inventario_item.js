@@ -30,7 +30,7 @@ const loadInventoryItems = async () => {
 
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td>${id_inventario_item}</td>
+                    
                     <td>${nombre_inventario}</td>
                     <td>${nombre_item}</td>
                     <td>${cantidad}</td>

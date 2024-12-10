@@ -29,7 +29,7 @@ const loadInventories = async () => {
 
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td>${id_inventario}</td>
+                    
                     <td>${nombre_habitacion}</td>
                     <td>${nombre_hotel}</td>
                     <td>${nombre_estado}</td>

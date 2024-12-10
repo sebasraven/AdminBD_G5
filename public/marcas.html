@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestión de Ítems</title>
+    <title>Gestión de Marcas</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
@@ -20,18 +20,15 @@
 
     <!-- Main Content -->
     <div class="container mt-5">
-        <h1 class="text-center">Gestión de Ítems</h1>
+        <h1 class="text-center">Gestión de Marcas</h1>
         <div class="mb-3 text-end">
-            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addItemModal">Agregar Ítem</button>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addBrandModal">Agregar Marca</button>
         </div>
         <table class="table table-striped">
             <thead>
                 <tr>
                     
-                    <th>Marca</th>
-                    <th>Modelo</th>
-                    <th>Fecha de Compra</th>
-                    <th>Descripción</th>
+                    <th>Nombre de Marca</th>
                     <th>Estado</th>
                     <th>Creado Por</th>
                     <th>Fecha Creación</th>
@@ -41,38 +38,26 @@
                     <th>Opciones</th>
                 </tr>
             </thead>
-            <tbody id="itemTableBody">
+            <tbody id="brandTableBody">
                 <!-- Los datos se cargarán dinámicamente -->
             </tbody>
         </table>
     </div>
 
-    <!-- Modal para Agregar/Editar Ítem -->
-    <div class="modal fade" id="addItemModal" tabindex="-1" aria-labelledby="addItemModalLabel">
+    <!-- Modal para Agregar/Editar Marca -->
+    <div class="modal fade" id="addBrandModal" tabindex="-1" aria-labelledby="addBrandModalLabel">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="addItemModalLabel">Agregar Ítem</h5>
+                    <h5 class="modal-title" id="addBrandModalLabel">Agregar Marca</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <form id="addItemForm">
-                        <input type="hidden" id="itemId" /> <!-- Para almacenar el ID al editar -->
+                    <form id="addBrandForm">
+                        <input type="hidden" id="brandId" /> <!-- Para almacenar el ID al editar -->
                         <div class="mb-3">
-                            <label for="editMarca" class="form-label">Marca</label>
-                            <input type="text" class="form-control" id="editMarca" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="editModelo" class="form-label">Modelo</label>
-                            <input type="text" class="form-control" id="editModelo" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="editFechaCompra" class="form-label">Fecha de Compra</label>
-                            <input type="date" class="form-control" id="editFechaCompra" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="editDescripcion" class="form-label">Descripción</label>
-                            <textarea class="form-control" id="editDescripcion" required></textarea>
+                            <label for="editNombreMarca" class="form-label">Nombre de Marca</label>
+                            <input type="text" class="form-control" id="editNombreMarca" required>
                         </div>
                         <button type="submit" class="btn btn-primary">Guardar</button>
                     </form>
@@ -82,7 +67,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="item.js"></script>
+    <script src="marcas.js"></script>
 </body>
 
 </html>

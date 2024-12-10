@@ -31,7 +31,7 @@ const loadItems = async () => {
 
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td>${id_item}</td>
+                    
                     <td>${marca}</td>
                     <td>${modelo}</td>
                     <td>${fecha_compra}</td>

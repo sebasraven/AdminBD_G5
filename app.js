@@ -3696,8 +3696,282 @@ app.put('/inventario_item/toggleState/:id', async (req, res) => {
 });
 
 
+// MARCAS
+app.get('/marcas', async (req, res) => {
+  let connection;
+  try {
+    connection = await oracledb.getConnection(dbConfig);
+
+    // Consulta para obtener los datos de las marcas
+    const query = `
+      SELECT 
+        M.id_marca,
+        M.nombre_marca,
+        E.nombre_estado,
+        M.creado_por,
+        TO_CHAR(M.fecha_creacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_creacion,
+        M.modificado_por,
+        TO_CHAR(M.fecha_modificacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_modificacion,
+        M.accion
+      FROM 
+        FIDE_MARCA_TB M
+      JOIN 
+        FIDE_ESTADOS_TB E ON M.id_estado = E.id_estado
+    `;
+    const result = await connection.execute(query);
+
+    // Verifica los datos obtenidos
+    console.log('Datos obtenidos:', result.rows);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error de conexión o consulta:', err);
+    res.status(500).send('Error al obtener las marcas');
+  } finally {
+    // Asegúrate de cerrar la conexión al final
+    if (connection) {
+      try {
+        await connection.close();
+      } catch (closeErr) {
+        console.error('Error al cerrar la conexión:', closeErr);
+      }
+    }
+  }
+});
+
+app.post('/marcas', async (req, res) => {
+  const { nombre_marca } = req.body;
+
+  if (!nombre_marca) {
+    return res.status(400).send('El nombre de la marca es requerido');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Llamar al procedimiento almacenado para insertar los datos principales
+    await connection.execute(
+      `BEGIN
+              FIDE_MARCA_TB_INSERT_SP(
+                p_nombre_marca => :nombre_marca
+              );
+           END;`,
+      { nombre_marca }
+    );
+
+    // Confirmar la transacción
+    await connection.commit();
+    await connection.close();
+
+    res.status(201).send('Marca creada exitosamente');
+  } catch (err) {
+    console.error('Error al insertar la marca:', err);
+    res.status(500).send('Error al insertar la marca');
+  }
+});
+
+app.put('/marcas/:id', async (req, res) => {
+  const { id } = req.params; // ID de la marca
+  const { nombre_marca } = req.body;
+
+  if (!nombre_marca) {
+    return res.status(400).send('El nombre de la marca es requerido');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar la marca en la tabla FIDE_MARCA_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_MARCA_TB
+       SET nombre_marca = :nombre_marca
+       WHERE id_marca = :id`,
+      { nombre_marca, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Marca actualizada correctamente');
+  } catch (err) {
+    console.error('Error al actualizar la marca:', err);
+    res.status(500).send('Error al actualizar la marca');
+  }
+});
+
+app.put('/marcas/toggleState/:id', async (req, res) => {
+  const { id } = req.params; // ID de la marca
+  const { newState } = req.body;
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar el estado de la marca en la tabla FIDE_MARCA_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_MARCA_TB
+       SET id_estado = (SELECT id_estado FROM FIDE_ESTADOS_TB WHERE nombre_estado = :newState)
+       WHERE id_marca = :id`,
+      { newState, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Estado de la marca actualizado correctamente');
+  } catch (err) {
+    console.error('Error al actualizar el estado de la marca:', err);
+    res.status(500).send('Error al actualizar el estado de la marca');
+  }
+});
 
 
+// MODELOS
+app.get('/modelos', async (req, res) => {
+  let connection;
+  try {
+    connection = await oracledb.getConnection(dbConfig);
+
+    // Consulta para obtener los datos de los modelos
+    const query = `
+      SELECT 
+        MO.id_modelo,
+        MO.nombre_modelo,
+        MA.nombre_marca,
+        E.nombre_estado,
+        MO.creado_por,
+        TO_CHAR(MO.fecha_creacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_creacion,
+        MO.modificado_por,
+        TO_CHAR(MO.fecha_modificacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_modificacion,
+        MO.accion
+      FROM 
+        FIDE_MODELO_TB MO
+      JOIN 
+        FIDE_MARCA_TB MA ON MO.id_marca = MA.id_marca
+      JOIN 
+        FIDE_ESTADOS_TB E ON MO.id_estado = E.id_estado
+    `;
+    const result = await connection.execute(query);
+
+    // Verifica los datos obtenidos
+    console.log('Datos obtenidos:', result.rows);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error de conexión o consulta:', err);
+    res.status(500).send('Error al obtener los modelos');
+  } finally {
+    // Asegúrate de cerrar la conexión al final
+    if (connection) {
+      try {
+        await connection.close();
+      } catch (closeErr) {
+        console.error('Error al cerrar la conexión:', closeErr);
+      }
+    }
+  }
+});
+
+app.post('/modelos', async (req, res) => {
+  const { id_marca, nombre_modelo } = req.body;
+
+  if (!id_marca || !nombre_modelo) {
+    return res.status(400).send('Todos los campos obligatorios son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Llamar al procedimiento almacenado para insertar los datos principales
+    await connection.execute(
+      `BEGIN
+              FIDE_MODELO_TB_INSERT_SP(
+                p_id_marca => :id_marca,
+                p_nombre_modelo => :nombre_modelo
+              );
+           END;`,
+      { id_marca, nombre_modelo }
+    );
+
+    // Confirmar la transacción
+    await connection.commit();
+    await connection.close();
+
+    res.status(201).send('Modelo creado exitosamente');
+  } catch (err) {
+    console.error('Error al insertar el modelo:', err);
+    res.status(500).send('Error al insertar el modelo');
+  }
+});
+
+app.put('/modelos/:id', async (req, res) => {
+  const { id } = req.params; // ID del modelo
+  const { id_marca, nombre_modelo } = req.body;
+
+  if (!id_marca || !nombre_modelo) {
+    return res.status(400).send('Todos los campos obligatorios son requeridos');
+  }
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar el modelo en la tabla FIDE_MODELO_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_MODELO_TB
+       SET id_marca = :id_marca, nombre_modelo = :nombre_modelo
+       WHERE id_modelo = :id`,
+      { id_marca, nombre_modelo, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Modelo actualizado correctamente');
+  } catch (err) {
+    console.error('Error al actualizar el modelo:', err);
+    res.status(500).send('Error al actualizar el modelo');
+  }
+});
+
+app.put('/modelos/toggleState/:id', async (req, res) => {
+  const { id } = req.params; // ID del modelo
+  const { newState } = req.body;
+
+  try {
+    const connection = await oracledb.getConnection(dbConfig);
+
+    // Actualizar el estado del modelo en la tabla FIDE_MODELO_TB
+    const result = await connection.execute(
+      `UPDATE FIDE_MODELO_TB
+       SET id_estado = (SELECT id_estado FROM FIDE_ESTADOS_TB WHERE nombre_estado = :newState)
+       WHERE id_modelo = :id`,
+      { newState, id }
+    );
+
+    // Verifica si la actualización fue exitosa
+    console.log(`Filas afectadas: ${result.rowsAffected}`);
+
+    // Realizar el commit
+    await connection.commit();
+    await connection.close();
+
+    res.send('Estado del modelo actualizado correctamente');
+  } catch (err) {
+    console.error('Error al actualizar el estado del modelo:', err);
+    res.status(500).send('Error al actualizar el estado del modelo');
+  }
+});
 
 
 

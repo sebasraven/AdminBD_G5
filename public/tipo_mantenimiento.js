@@ -28,7 +28,7 @@ const loadMaintenanceTypes = async () => {
 
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td>${id_tipo_mantenimiento}</td>
+                    
                     <td>${tipo_mantenimiento}</td>
                     <td>${nombre_estado}</td>
                     <td>${creado_por}</td>
