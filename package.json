@@ -10,6 +10,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "adminbd_g5": "file:",
     "express": "^4.21.2",
     "oracledb": "^6.7.0"
   }
