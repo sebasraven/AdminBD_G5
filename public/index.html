@@ -8,107 +8,138 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
 
 <body>
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container-fluid">
-            <a class="navbar-brand" href="#">Admin Panel</a>
+            <a class="navbar-brand" href="#"><i class="fas fa-hotel"></i> Admin Panel</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav">
+                <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link active" href="estados.html">Estados</a>
+                        <a class="nav-link active" href="estados.html"><i class="fas fa-flag"></i> Estados</a>
                     </li>
-                    <!-- Sección para agregar más tablas -->
-                    <li class="nav-item">
-                        <a class="nav-link active" href="nacionalidad.html">Nacionalidades</a>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="locationDropdown" role="button"
+                            data-bs-toggle="dropdown">
+                            <i class="fas fa-map-marker-alt"></i> Localización
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="locationDropdown">
+                            <li><a class="dropdown-item" href="nacionalidad.html">Nacionalidades</a></li>
+                            <li><a class="dropdown-item" href="pais.html">Países</a></li>
+                            <li><a class="dropdown-item" href="provincia.html">Provincias</a></li>
+                            <li><a class="dropdown-item" href="canton.html">Cantones</a></li>
+                            <li><a class="dropdown-item" href="distrito.html">Distritos</a></li>
+                        </ul>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="pais.html">Paises</a>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button"
+                            data-bs-toggle="dropdown">
+                            <i class="fas fa-user"></i> Usuarios
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="userDropdown">
+                            <li><a class="dropdown-item" href="roles.html">Roles</a></li>
+                            <li><a class="dropdown-item" href="usuarios.html">Usuarios</a></li>
+                        </ul>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="provincia.html">Provincias</a>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="financeDropdown" role="button"
+                            data-bs-toggle="dropdown">
+                            <i class="fas fa-dollar-sign"></i> Finanzas
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="financeDropdown">
+                            <li><a class="dropdown-item" href="moneda.html">Monedas</a></li>
+                            <li><a class="dropdown-item" href="tipo_cambio.html">Tipo de Cambio</a></li>
+                            <li><a class="dropdown-item" href="impuestos.html">Impuestos</a></li>
+                            <li><a class="dropdown-item" href="facturas.html">Facturas</a></li>
+                            <li><a class="dropdown-item" href="detalle_factura.html">Detalle de Facturas</a></li>
+                        </ul>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="canton.html">Cantones</a>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="hotelDropdown" role="button"
+                            data-bs-toggle="dropdown">
+                            <i class="fas fa-hotel"></i> Hotel
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="hotelDropdown">
+                            <li><a class="dropdown-item" href="hoteles.html">Hoteles</a></li>
+                            <li><a class="dropdown-item" href="habitaciones.html">Habitaciones</a></li>
+                            <li><a class="dropdown-item" href="limpieza_habitaciones.html">Limpieza de Habitaciones</a>
+                            </li>
+                            <li><a class="dropdown-item" href="valoraciones.html">Valoraciones</a></li>
+                        </ul>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="distrito.html">Distritos</a>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="reservationDropdown" role="button"
+                            data-bs-toggle="dropdown">
+                            <i class="fas fa-calendar-alt"></i> Reservas
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="reservationDropdown">
+                            <li><a class="dropdown-item" href="categoria_reservas.html">Categoría de Reservas</a></li>
+                            <li><a class="dropdown-item" href="reservas.html">Reservas</a></li>
+                        </ul>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="roles.html">Roles</a>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="promotionDropdown" role="button"
+                            data-bs-toggle="dropdown">
+                            <i class="fas fa-tags"></i> Promociones
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="promotionDropdown">
+                            <li><a class="dropdown-item" href="tipo_promocion.html">Tipos de Promociones</a></li>
+                            <li><a class="dropdown-item" href="promociones.html">Promociones</a></li>
+                        </ul>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="usuarios.html">Usuarios</a>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="maintenanceDropdown" role="button"
+                            data-bs-toggle="dropdown">
+                            <i class="fas fa-tools"></i> Mantenimiento
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="maintenanceDropdown">
+                            <li><a class="dropdown-item" href="tipo_mantenimiento.html">Tipos de Mantenimiento</a></li>
+                            <li><a class="dropdown-item" href="mantenimiento.html">Mantenimiento</a></li>
+                        </ul>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="moneda.html">Monedas</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="tipo_cambio.html">Tipo de Cambio</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="impuestos.html">Impuestos</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="hoteles.html">Hoteles</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="habitaciones.html">Habitaciones</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="limpieza_habitaciones.html">Limpieza de Habitaciones</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="valoraciones.html">Valoraciones</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="categoria_reservas.html">Categoria de Reservas</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="reservas.html">Reservas</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="tipo_promocion.html">Tipos de Promociones</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="promociones.html">Promociones</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="facturas.html">Facturas</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="detalle_factura.html">Detalle de Facturas</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="tipo_mantenimiento.html">Tipos de Mantenimiento</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="mantenimiento.html">Mantenimiento</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="inventario.html">Inventario</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="item.html">Items</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="inventario_item.html">Inventario-Item</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="marcas.html">Marcas</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="modelos.html">Modelos</a>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="inventoryDropdown" role="button"
+                            data-bs-toggle="dropdown">
+                            <i class="fas fa-warehouse"></i> Inventario
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="inventoryDropdown">
+                            <li><a class="dropdown-item" href="inventario.html">Inventario</a></li>
+                            <li><a class="dropdown-item" href="item.html">Items</a></li>
+                            <li><a class="dropdown-item" href="inventario_item.html">Inventario-Item</a></li>
+                            <li><a class="dropdown-item" href="marcas.html">Marcas</a></li>
+                            <li><a class="dropdown-item" href="modelos.html">Modelos</a></li>
+                        </ul>
                     </li>
                 </ul>
             </div>
         </div>
     </nav>
+
+    <!-- Main Content -->
+    <div class="container mt-5">
+        <div class="jumbotron text-center bg-light p-5 rounded">
+            <h1 class="display-4">Panel de Administración de la Base de Datos Oracle</h1>
+            <p class="lead">Gestiona todos los aspectos del hotel de manera eficiente.</p>
+            <hr class="my-4">
+            <p>Utiliza el menú de navegación para acceder a diferentes secciones del sistema.</p>
+        </div>
+        <div class="text-center">
+            <img src="images/grupo.jpg" alt="Grupo 5" class="img-fluid rounded my-4">
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer mt-auto py-3 bg-dark text-white text-center">
+        <div class="container">
+            <span>&copy; 2024 FIDE HOTEL ADMIN BD. Todos los derechos reservados.</span>
+        </div>
+    </footer>
 
     <!-- JS para funcionalidad -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>

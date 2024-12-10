@@ -1,14 +1,72 @@
 /* Estilos para el sitio web */
 
 body {
-    background-color: #f8f9fa;
-  }
-  
-  .navbar-brand {
-    font-weight: bold;
-  }
-  
-  h1 {
-    margin-bottom: 20px;
-    color: #343a40;
-  }
+  background-color: #f8f9fa;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+.navbar-brand {
+  font-weight: bold;
+  font-size: 1.5rem;
+}
+
+.navbar-nav .nav-link {
+  font-size: 16px;
+  color: #ffffff !important;
+}
+
+.navbar-nav .nav-link i {
+  margin-right: 5px;
+}
+
+.navbar-nav .dropdown-menu {
+  background-color: #343a40;
+  border: none;
+}
+
+.navbar-nav .dropdown-menu .dropdown-item {
+  color: #ffffff;
+}
+
+.navbar-nav .dropdown-menu .dropdown-item:hover {
+  background-color: #495057;
+}
+
+.jumbotron {
+  background-image: url('https://images.freecreatives.com/wp-content/uploads/2016/04/Abstract-Website-Background.jpg');  /* Cambia esto por una URL válida de imagen de fondo */
+  background-size: cover;
+  background-position: center;
+  color: #ffffff;
+  text-shadow: 2px 2px 4px #000000;
+}
+
+.jumbotron .display-4 {
+  font-size: 2.5rem;
+  font-weight: bold;
+}
+
+.jumbotron .lead {
+  font-size: 1.25rem;
+}
+
+.jumbotron hr {
+  border-top: 1px solid #ffffff;
+}
+
+.footer {
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  text-align: center;
+}
+
+.footer span {
+  font-size: 0.875rem;
+}
+
+.img-fluid {
+  max-width: 100%;
+  height: auto;
+}
+
+
