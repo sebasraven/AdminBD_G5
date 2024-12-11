@@ -33,7 +33,7 @@ app.get('/estados', async (req, res) => {
     connection = await oracledb.getConnection(dbConfig);
 
     // Realizar la consulta principal después de establecer la conexión
-    const result = await connection.execute('SELECT id_estado, nombre_estado, descripcion, notas, creado_por, fecha_creacion, modificado_por, fecha_modificacion, accion FROM FIDE_ESTADOS_TB');
+    const result = await connection.execute('SELECT * FROM V_FIDE_ESTADOS');
 
     res.json(result.rows);
   } catch (err) {
@@ -80,7 +80,13 @@ app.put('/estados/:id_estado', async (req, res) => {
   try {
     const connection = await oracledb.getConnection(dbConfig);
     await connection.execute(
-      `UPDATE FIDE_ESTADOS_TB SET nombre_estado = :nombre_estado, descripcion = :descripcion, notas = :notas WHERE id_estado = :id_estado`,
+      `BEGIN
+    FIDE_ESTADOS_TB_ACTUALIZAR_SP(
+        p_id_estado => :id_estado,
+        p_nombre_estado => :nombre_estado,
+        p_descripcion => :descripcion,
+        p_notas => :notas
+    ); END;`,
       { id_estado, nombre_estado, descripcion, notas },
       { autoCommit: true }
     );
@@ -99,7 +105,8 @@ app.delete('/estados/:id_estado', async (req, res) => {
 
   try {
     const connection = await oracledb.getConnection(dbConfig);
-    await connection.execute(`DELETE FROM FIDE_ESTADOS_TB WHERE id_estado = :id_estado`, { id_estado }, { autoCommit: true });
+    await connection.execute(`BEGIN FIDE_ESTADOS_TB_ELIMINAR_SP(p_id_estado => :id_estado); END;`, 
+    { id_estado }, { autoCommit: true });
     await connection.close();
 
     res.send('Estado eliminado correctamente');
@@ -119,21 +126,7 @@ app.get('/nacionalidad', async (req, res) => {
 
     // Consulta para obtener los datos incluyendo el nombre del estado
     const query = `
-      SELECT 
-        F.id_nacionalidad, 
-        F.descripcion, 
-        E.nombre_estado, 
-        F.creado_por, 
-        F.fecha_creacion, 
-        F.modificado_por, 
-        F.fecha_modificacion, 
-        F.accion
-      FROM 
-        FIDE_NACIONALIDAD_TB F
-      JOIN 
-        FIDE_ESTADOS_TB E 
-      ON 
-        F.id_estado = E.id_estado
+      SELECT * FROM V_FIDE_NACIONALIDADES
     `;
     const result = await connection.execute(query);
 
@@ -200,9 +193,12 @@ app.put('/nacionalidad/:id', async (req, res) => {
 
     // Actualizar la nacionalidad en la tabla FIDE_NACIONALIDAD_TB
     const result = await connection.execute(
-      `UPDATE FIDE_NACIONALIDAD_TB
-       SET descripcion = :descripcion, id_estado = :nuevo_estado
-       WHERE id_nacionalidad = :id`,
+      `BEGIN
+    FIDE_NACIONALIDAD_TB_ACTUALIZAR_SP(
+        p_id_nacionalidad => :id,
+        p_descripcion => :descripcion,
+        p_nuevo_estado => :nuevo_estado
+    ); END;`,
       { descripcion, nuevo_estado, id }
     );
 
@@ -229,21 +225,7 @@ app.get('/pais', async (req, res) => {
 
     // Consulta para obtener los datos incluyendo el nombre del estado
     const query = `
-      SELECT 
-        F.id_pais, 
-        F.nombre_pais, 
-        E.nombre_estado, 
-        F.creado_por, 
-        F.fecha_creacion, 
-        F.modificado_por, 
-        F.fecha_modificacion, 
-        F.accion
-      FROM 
-        FIDE_PAIS_TB F
-      JOIN 
-        FIDE_ESTADOS_TB E 
-      ON 
-        F.id_estado = E.id_estado
+      SELECT * FROM V_FIDE_PAIS_DETALLES
     `;
     const result = await connection.execute(query);
 
@@ -308,9 +290,12 @@ app.put('/pais/:id', async (req, res) => {
 
     // Actualizar la pais en la tabla FIDE_PAIS_TB
     const result = await connection.execute(
-      `UPDATE FIDE_PAIS_TB
-       SET nombre_pais = :nombre_pais, id_estado = :nuevo_estado
-       WHERE id_pais = :id`,
+      `BEGIN
+    FIDE_PAIS_TB_ACTUALIZAR_SP(
+        p_id_pais => :id,
+        p_nombre_pais => :nombre_pais,
+        p_nuevo_estado => :nuevo_estado
+    ); END;`,
       { nombre_pais, nuevo_estado, id }
     );
 
@@ -337,26 +322,7 @@ app.get('/provincia', async (req, res) => {
 
     // Consulta para obtener los datos incluyendo el nombre del estado y país
     const query = `
-      SELECT 
-        F.id_provincia, 
-        F.nombre_provincia, 
-        P.nombre_pais, 
-        E.nombre_estado, 
-        F.creado_por, 
-        F.fecha_creacion, 
-        F.modificado_por, 
-        F.fecha_modificacion, 
-        F.accion
-      FROM 
-        FIDE_PROVINCIA_TB F
-      JOIN 
-        FIDE_PAIS_TB P 
-      ON 
-        F.id_pais = P.id_pais
-      JOIN 
-        FIDE_ESTADOS_TB E 
-      ON 
-        F.id_estado = E.id_estado
+      SELECT * FROM V_FIDE_PROVINCIA_DETALLES
     `;
     const result = await connection.execute(query);
 
@@ -421,9 +387,13 @@ app.put('/provincia/:id', async (req, res) => {
 
     // Actualizar la provincia en la tabla FIDE_PROVINCIA_TB
     const result = await connection.execute(
-      `UPDATE FIDE_PROVINCIA_TB
-       SET nombre_provincia = :nombre_provincia, id_estado = :nuevo_estado
-       WHERE id_provincia = :id`,
+      `BEGIN
+    FIDE_PROVINCIA_TB_ACTUALIZAR_SP(
+        p_id_provincia     => :id, 
+        p_nombre_provincia => :nombre_provincia, 
+        p_nuevo_estado     => :nuevo_estado
+    ); END;
+`,
       { nombre_provincia, nuevo_estado, id }
     );
 
@@ -798,58 +768,7 @@ app.get('/usuarios', async (req, res) => {
 
     // Consulta para obtener los datos incluyendo los nombres de los roles, estados, nacionalidades, países, provincias, cantones y distritos
     const query = `
-      SELECT 
-        U.id_usuario, 
-        U.nombre, 
-        U.apellidos, 
-        U.cedula, 
-        U.telefono, 
-        U.correo, 
-        U.fecha_nacimiento, 
-        N.descripcion,
-        P.nombre_pais,
-        PR.nombre_provincia,
-        C.nombre_canton,
-        D.nombre_distrito,
-        R.nombre_rol, 
-        E.nombre_estado,
-        U.id_rol,
-        U.id_nacionalidad,
-        U.id_pais,
-        U.id_provincia,
-        U.id_canton,
-        U.id_distrito,
-        U.contrasena
-      FROM 
-        FIDE_USUARIOS_TB U
-      JOIN 
-        FIDE_NACIONALIDAD_TB N
-      ON 
-        U.id_nacionalidad = N.id_nacionalidad
-      JOIN 
-        FIDE_PAIS_TB P
-      ON 
-        U.id_pais = P.id_pais
-      JOIN 
-        FIDE_PROVINCIA_TB PR
-      ON 
-        U.id_provincia = PR.id_provincia
-      JOIN 
-        FIDE_CANTON_TB C 
-      ON 
-        U.id_canton = C.id_canton
-      JOIN 
-        FIDE_DISTRITO_TB D
-      ON 
-        U.id_distrito = D.id_distrito
-      JOIN 
-        FIDE_ROLES_TB R 
-      ON 
-        U.id_rol = R.id_rol
-      JOIN 
-        FIDE_ESTADOS_TB E 
-      ON 
-        U.id_estado = E.id_estado
+      SELECT * FROM VISTA_USUARIOS_COMPLETA
     `;
     const result = await connection.execute(query);
 
