@@ -187,25 +187,23 @@ app.post('/nacionalidad', async (req, res) => {
 });
 
 
-app.put('/usuarios/:id', async (req, res) => {
-  const { id } = req.params; // ID del usuario
-  const { nombre, apellidos, cedula, telefono, correo, fecha_nacimiento, id_rol, id_nacionalidad, id_pais, id_provincia, id_canton, id_distrito, contrasena, nuevo_estado } = req.body;
+app.put('/nacionalidad/:id', async (req, res) => {
+  const { id } = req.params; // ID de la nacionalidad
+  const { descripcion, nuevo_estado } = req.body; // Descripción y nuevo estado de la nacionalidad
 
-  console.log(`Recibiendo solicitud para actualizar el usuario con id: ${id}`);
-
-  if (!nombre || !apellidos || !cedula || !telefono || !correo || !fecha_nacimiento || !id_rol || !id_nacionalidad || !id_pais || !id_provincia || !id_canton || !id_distrito || !contrasena) {
+  if (!descripcion || !nuevo_estado) {
     return res.status(400).send('Todos los campos son requeridos');
   }
 
   try {
     const connection = await oracledb.getConnection(dbConfig);
 
-    // Actualizar el usuario en la tabla FIDE_USUARIOS_TB
+    // Actualizar la nacionalidad en la tabla FIDE_NACIONALIDAD_TB
     const result = await connection.execute(
-      `UPDATE FIDE_USUARIOS_TB
-       SET nombre = :nombre, apellidos = :apellidos, cedula = :cedula, telefono = :telefono, correo = :correo, fecha_nacimiento = TO_DATE(:fecha_nacimiento, 'YYYY-MM-DD'), id_rol = :id_rol, id_nacionalidad = :id_nacionalidad, id_pais = :id_pais, id_provincia = :id_provincia, id_canton = :id_canton, id_distrito = :id_distrito, contrasena = :contrasena, id_estado = :nuevo_estado
-       WHERE id_usuario = :id`,
-      { nombre, apellidos, cedula, telefono, correo, fecha_nacimiento, id_rol, id_nacionalidad, id_pais, id_provincia, id_canton, id_distrito, contrasena, nuevo_estado, id }
+      `UPDATE FIDE_NACIONALIDAD_TB
+       SET descripcion = :descripcion, id_estado = :nuevo_estado
+       WHERE id_nacionalidad = :id`,
+      { descripcion, nuevo_estado, id }
     );
 
     // Verifica si la actualización fue exitosa
@@ -215,13 +213,12 @@ app.put('/usuarios/:id', async (req, res) => {
     await connection.commit();
     await connection.close();
 
-    res.send('Usuario actualizado correctamente');
+    res.send('Nacionalidad actualizada correctamente');
   } catch (err) {
-    console.error('Error al actualizar el usuario:', err);
-    res.status(500).send('Error al actualizar el usuario');
+    console.error('Error al actualizar la nacionalidad:', err);
+    res.status(500).send('Error al actualizar la nacionalidad');
   }
 });
-
 
 
 //PAIS
