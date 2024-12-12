@@ -12,9 +12,9 @@ app.use(express.static('public'));  // Para servir archivos estáticos (HTML, CS
 
 // Configuración de la base de datos
 const dbConfig = {
-  user: 'PRUEBAS', // CAMBIAR USUARIO AL DE LA BD
-  password: 'PRUEBAS', // CAMBIAR PASSWORD AL DE LA BD
-  connectString: 'localhost:1521/XE'
+  user: 'ProyectoAdmin', // CAMBIAR USUARIO AL DE LA BD
+  password: 'ProyectoAdmin', // CAMBIAR PASSWORD AL DE LA BD
+  connectString: 'localhost:1521/XEPDB1'
 };
 
 // Ruta para la raíz del servidor
@@ -420,26 +420,8 @@ app.get('/canton', async (req, res) => {
 
     // Consulta para obtener los datos incluyendo el nombre del estado y provincia
     const query = `
-      SELECT 
-        F.id_canton, 
-        F.nombre_canton, 
-        P.nombre_provincia, 
-        E.nombre_estado, 
-        F.creado_por, 
-        F.fecha_creacion, 
-        F.modificado_por, 
-        F.fecha_modificacion, 
-        F.accion
-      FROM 
-        FIDE_CANTON_TB F
-      JOIN 
-        FIDE_PROVINCIA_TB P 
-      ON 
-        F.id_provincia = P.id_provincia
-      JOIN 
-        FIDE_ESTADOS_TB E 
-      ON 
-        F.id_estado = E.id_estado
+      SELECT *
+FROM V_FIDE_CANTON_DETALLES
     `;
     const result = await connection.execute(query);
 
@@ -504,9 +486,12 @@ app.put('/canton/:id', async (req, res) => {
 
     // Actualizar el cantón en la tabla FIDE_CANTON_TB
     const result = await connection.execute(
-      `UPDATE FIDE_CANTON_TB
-       SET nombre_canton = :nombre_canton, id_estado = :nuevo_estado
-       WHERE id_canton = :id`,
+      `BEGIN
+    FIDE_CANTON_TB_ACTUALIZAR_SP(
+        p_id_canton => :id,
+        p_nombre_canton => :nombre_canton,
+        p_nuevo_estado => :nuevo_estado
+    ); END;`,
       { nombre_canton, nuevo_estado, id }
     );
 
@@ -533,27 +518,8 @@ app.get('/distrito', async (req, res) => {
 
     // Consulta para obtener los datos incluyendo el id_canton
     const query = `
-      SELECT 
-        F.id_distrito, 
-        F.nombre_distrito, 
-        C.nombre_canton, 
-        E.nombre_estado, 
-        F.creado_por, 
-        F.fecha_creacion, 
-        F.modificado_por, 
-        F.fecha_modificacion, 
-        F.accion,
-        F.id_canton  -- Asegúrate de incluir el id_canton aquí
-      FROM 
-        FIDE_DISTRITO_TB F
-      JOIN 
-        FIDE_CANTON_TB C 
-      ON 
-        F.id_canton = C.id_canton
-      JOIN 
-        FIDE_ESTADOS_TB E 
-      ON 
-        F.id_estado = E.id_estado
+      SELECT *
+FROM V_FIDE_DISTRITO_DETALLES
     `;
     const result = await connection.execute(query);
 
@@ -624,9 +590,14 @@ app.put('/distrito/:id', async (req, res) => {
 
     // Actualizar el distrito en la tabla FIDE_DISTRITO_TB
     const result = await connection.execute(
-      `UPDATE FIDE_DISTRITO_TB
-       SET nombre_distrito = :nombre_distrito, id_canton = :id_canton, id_estado = :nuevo_estado
-       WHERE id_distrito = :id`,
+      `BEGIN
+    FIDE_DISTRITO_TB_ACTUALIZAR_SP(
+        p_id_distrito => :id,
+        p_nombre_distrito => :nombre_distrito,
+        p_id_canton => :id_canton,
+        p_nuevo_estado => :nuevo_estado
+    ); END;
+`,
       { nombre_distrito, id_canton, nuevo_estado, id }
     );
 
@@ -653,22 +624,8 @@ app.get('/roles', async (req, res) => {
 
     // Consulta para obtener los datos incluyendo el nombre del estado
     const query = `
-      SELECT 
-        R.id_rol, 
-        R.nombre_rol, 
-        R.descripcion, 
-        E.nombre_estado, 
-        R.creado_por, 
-        R.fecha_creacion, 
-        R.modificado_por, 
-        R.fecha_modificacion, 
-        R.accion
-      FROM 
-        FIDE_ROLES_TB R
-      JOIN 
-        FIDE_ESTADOS_TB E 
-      ON 
-        R.id_estado = E.id_estado
+      SELECT *
+FROM V_FIDE_ROLES_DETALLES
     `;
     const result = await connection.execute(query);
 
@@ -738,9 +695,14 @@ app.put('/roles/:id', async (req, res) => {
 
     // Actualizar el rol en la tabla FIDE_ROLES_TB
     const result = await connection.execute(
-      `UPDATE FIDE_ROLES_TB
-       SET nombre_rol = :nombre_rol, descripcion = :descripcion, id_estado = :nuevo_estado
-       WHERE id_rol = :id`,
+      `BEGIN
+    FIDE_ROLES_TB_ACTUALIZAR_SP(
+        p_id_rol => :id,
+        p_nombre_rol => :nombre_rol,
+        p_descripcion => :descripcion,
+        p_nuevo_estado => :nuevo_estado
+    ); END;
+`,
       { nombre_rol, descripcion, nuevo_estado, id }
     );
 
@@ -768,7 +730,8 @@ app.get('/usuarios', async (req, res) => {
 
     // Consulta para obtener los datos incluyendo los nombres de los roles, estados, nacionalidades, países, provincias, cantones y distritos
     const query = `
-      SELECT * FROM VISTA_USUARIOS_COMPLETA
+      SELECT *
+FROM V_FIDE_USUARIOS_DETALLES
     `;
     const result = await connection.execute(query);
 
@@ -836,9 +799,24 @@ app.put('/usuarios/:id', async (req, res) => {
 
     // Actualizar el usuario en la tabla FIDE_USUARIOS_TB
     const result = await connection.execute(
-      `UPDATE FIDE_USUARIOS_TB
-       SET nombre = :nombre, apellidos = :apellidos, cedula = :cedula, telefono = :telefono, correo = :correo, fecha_nacimiento = TO_DATE(:fecha_nacimiento, 'YYYY-MM-DD'), id_rol = :id_rol, id_nacionalidad = :id_nacionalidad, id_pais = :id_pais, id_provincia = :id_provincia, id_canton = :id_canton, id_distrito = :id_distrito, contrasena = :contrasena, id_estado = :nuevo_estado
-       WHERE id_usuario = :id`,
+      `BEGIN
+    FIDE_USUARIOS_TB_ACTUALIZAR_SP(
+        p_id_usuario => :id,
+        p_nombre => :nombre,
+        p_apellidos => :apellidos,
+        p_cedula => :cedula,
+        p_telefono => :telefono,
+        p_correo => :correo,
+        p_fecha_nacimiento => TO_DATE(:fecha_nacimiento, 'YYYY-MM-DD'),
+        p_id_rol => :id_rol,
+        p_id_nacionalidad => :id_nacionalidad,
+        p_id_pais => :id_pais,
+        p_id_provincia => :id_provincia,
+        p_id_canton => :id_canton,
+        p_id_distrito => :id_distrito,
+        p_contrasena => :contrasena,
+        p_nuevo_estado => :nuevo_estado
+    ); END;`,
       { nombre, apellidos, cedula, telefono, correo, fecha_nacimiento, id_rol, id_nacionalidad, id_pais, id_provincia, id_canton, id_distrito, contrasena, nuevo_estado, id }
     );
 
@@ -864,22 +842,8 @@ app.get('/monedas', async (req, res) => {
 
     // Consulta para obtener los datos incluyendo el nombre del estado
     const query = `
-      SELECT 
-        M.id_moneda, 
-        M.codigo_moneda, 
-        M.nombre_moneda, 
-        E.nombre_estado,
-        M.creado_por, 
-        M.fecha_creacion, 
-        M.modificado_por, 
-        M.fecha_modificacion, 
-        M.accion
-      FROM 
-        FIDE_MONEDA_TB M
-      JOIN 
-        FIDE_ESTADOS_TB E 
-      ON 
-        M.id_estado = E.id_estado
+      SELECT *
+FROM V_FIDE_MONEDAS_DETALLES
     `;
     const result = await connection.execute(query);
 
@@ -946,9 +910,13 @@ app.put('/monedas/:id', async (req, res) => {
 
     // Actualizar la moneda en la tabla FIDE_MONEDA_TB
     const result = await connection.execute(
-      `UPDATE FIDE_MONEDA_TB
-       SET codigo_moneda = :codigo_moneda, nombre_moneda = :nombre_moneda, id_estado = :nuevo_estado
-       WHERE id_moneda = :id`,
+      `BEGIN
+    FIDE_MONEDA_TB_ACTUALIZAR_SP(
+        p_id_moneda => :id,
+        p_codigo_moneda => :codigo_moneda,
+        p_nombre_moneda => :nombre_moneda,
+        p_nuevo_estado => :nuevo_estado
+    ); END;`,
       { codigo_moneda, nombre_moneda, nuevo_estado, id }
     );
 
@@ -975,22 +943,8 @@ app.get('/tipo_cambio', async (req, res) => {
 
     // Consulta para obtener los datos incluyendo el nombre de la moneda
     const query = `
-      SELECT 
-        T.id_tipo_cambio,
-        M.nombre_moneda, 
-        T.fecha, 
-        T.tasa_cambio,
-        T.creado_por,
-        T.fecha_creacion, 
-        T.modificado_por, 
-        T.fecha_modificacion, 
-        T.accion
-      FROM 
-        FIDE_TIPO_CAMBIO_TB T
-      JOIN 
-        FIDE_MONEDA_TB M 
-      ON 
-        T.id_moneda = M.id_moneda
+      SELECT *
+FROM V_FIDE_TIPO_CAMBIO_DETALLES
     `;
     const result = await connection.execute(query);
 
@@ -1057,9 +1011,13 @@ app.put('/tipo_cambio/:id', async (req, res) => {
 
     // Actualizar el tipo de cambio en la tabla FIDE_TIPO_CAMBIO_TB
     const result = await connection.execute(
-      `UPDATE FIDE_TIPO_CAMBIO_TB
-       SET id_moneda = :id_moneda, fecha = TO_DATE(:fecha, 'YYYY-MM-DD'), tasa_cambio = :tasa_cambio
-       WHERE id_tipo_cambio = :id`,
+      `BEGIN
+    FIDE_TIPO_CAMBIO_TB_ACTUALIZAR_SP(
+        p_id_tipo_cambio => :id,
+        p_id_moneda => :id_moneda,
+        p_fecha => TO_DATE(:fecha, 'YYYY-MM-DD'),
+        p_tasa_cambio => :tasa_cambio
+    ); END;`,
       { id_moneda, fecha, tasa_cambio, id }
     );
 
@@ -1086,27 +1044,8 @@ app.get('/impuestos', async (req, res) => {
 
     // Consulta para obtener los datos incluyendo los nombres del país y del estado
     const query = `
-      SELECT 
-        I.id_impuesto, 
-        I.nombre_impuesto, 
-        I.porcentaje, 
-        P.nombre_pais,
-        E.nombre_estado,
-        I.creado_por,
-        I.fecha_creacion, 
-        I.modificado_por, 
-        I.fecha_modificacion, 
-        I.accion
-      FROM 
-        FIDE_IMPUESTOS_TB I
-      JOIN 
-        FIDE_PAIS_TB P 
-      ON 
-        I.id_pais = P.id_pais
-      JOIN 
-        FIDE_ESTADOS_TB E 
-      ON 
-        I.id_estado = E.id_estado
+      SELECT *
+FROM V_FIDE_IMPUESTOS_DETALLES
     `;
     const result = await connection.execute(query);
 
@@ -1155,9 +1094,11 @@ app.post('/impuestos', async (req, res) => {
 
     // Actualizar el campo id_estado para el impuesto recién insertado
     await connection.execute(
-      `UPDATE FIDE_IMPUESTOS_TB
-       SET id_estado = :id_estado
-       WHERE id_impuesto = :lastId`,
+      `BEGIN
+    FIDE_IMPUESTOS_TB_ACTUALIZAR_ESTADO_SP(
+        p_id_impuesto => :lastId,
+        p_id_estado => :id_estado
+    ); END;`,
       { id_estado, lastId }
     );
 
@@ -1216,42 +1157,8 @@ app.get('/hoteles', async (req, res) => {
 
     // Consulta para obtener los datos de los hoteles incluyendo nombres de país, provincia, cantón y distrito
     const query = `
-      SELECT 
-        H.id_hotel, 
-        H.nombre_hotel, 
-        H.telefono, 
-        P.nombre_pais,
-        PRO.nombre_provincia,
-        C.nombre_canton,
-        D.nombre_distrito,
-        E.nombre_estado,
-        H.creado_por,
-        H.fecha_creacion, 
-        H.modificado_por, 
-        H.fecha_modificacion, 
-        H.accion
-      FROM 
-        FIDE_HOTELES_TB H
-      JOIN 
-        FIDE_PAIS_TB P 
-      ON 
-        H.id_pais = P.id_pais
-      JOIN 
-        FIDE_PROVINCIA_TB PRO 
-      ON 
-        H.id_provincia = PRO.id_provincia
-      JOIN 
-        FIDE_CANTON_TB C 
-      ON 
-        H.id_canton = C.id_canton
-      JOIN 
-        FIDE_DISTRITO_TB D 
-      ON 
-        H.id_distrito = D.id_distrito
-      JOIN 
-        FIDE_ESTADOS_TB E 
-      ON 
-        H.id_estado = E.id_estado
+      SELECT *
+FROM V_FIDE_HOTELES_DETALLES
     `;
     const result = await connection.execute(query);
 
@@ -1294,7 +1201,7 @@ app.post('/hoteles', async (req, res) => {
 
     // Recuperar el ID del último hotel insertado
     const result = await connection.execute(
-      `SELECT ID_HOTEL_SEQ.CURRVAL AS last_id FROM dual`
+      `SELECT FIDE_HOTEL_ULTIMO_ID() AS last_id FROM dual`
     );
     const lastId = result.rows[0][0];
 
@@ -1324,9 +1231,16 @@ app.put('/hoteles/:id', async (req, res) => {
 
     // Actualizar el hotel en la tabla FIDE_HOTELES_TB
     const result = await connection.execute(
-      `UPDATE FIDE_HOTELES_TB
-       SET nombre_hotel = :nombre_hotel, telefono = :telefono, id_pais = :id_pais, id_provincia = :id_provincia, id_canton = :id_canton, id_distrito = :id_distrito
-       WHERE id_hotel = :id`,
+      `BEGIN
+    FIDE_HOTELES_TB_ACTUALIZAR_SP(
+        p_id_hotel => :id,
+        p_nombre_hotel => :nombre_hotel,
+        p_telefono => :telefono,
+        p_id_pais => :id_pais,
+        p_id_provincia => :id_provincia,
+        p_id_canton => :id_canton,
+        p_id_distrito => :id_distrito
+    ); END;`,
       { nombre_hotel, telefono, id_pais, id_provincia, id_canton, id_distrito, id }
     );
 
@@ -1353,9 +1267,11 @@ app.put('/hoteles/toggleState/:id', async (req, res) => {
 
     // Actualizar el estado del hotel en la tabla FIDE_HOTELES_TB
     const result = await connection.execute(
-      `UPDATE FIDE_HOTELES_TB
-       SET id_estado = (SELECT id_estado FROM FIDE_ESTADOS_TB WHERE nombre_estado = :newState)
-       WHERE id_hotel = :id`,
+      `BEGIN
+    FIDE_HOTELES_TB_ACTUALIZAR_ESTADO_SP(
+        p_id_hotel => :id,
+        p_new_state => :newState
+    ); END;`,
       { newState, id }
     );
 
@@ -1383,34 +1299,8 @@ app.get('/habitaciones', async (req, res) => {
 
     // Consulta para obtener los datos de las habitaciones incluyendo nombres de hotel y moneda
     const query = `
-      SELECT 
-        H.id_habitacion, 
-        HO.nombre_hotel, 
-        M.nombre_moneda, 
-        H.numero_habitacion, 
-        H.tipo_habitacion, 
-        H.precio_por_noche, 
-        H.capacidad_personas, 
-        E.nombre_estado, 
-        H.creado_por, 
-        H.fecha_creacion, 
-        H.modificado_por, 
-        H.fecha_modificacion, 
-        H.accion
-      FROM 
-        FIDE_HABITACIONES_TB H
-      JOIN 
-        FIDE_HOTELES_TB HO 
-      ON 
-        H.id_hotel = HO.id_hotel
-      JOIN 
-        FIDE_MONEDA_TB M 
-      ON 
-        H.id_moneda = M.id_moneda
-      JOIN 
-        FIDE_ESTADOS_TB E 
-      ON 
-        H.id_estado = E.id_estado
+      SELECT *
+FROM V_FIDE_HABITACIONES_DETALLES
     `;
     const result = await connection.execute(query);
 
@@ -1454,7 +1344,7 @@ app.post('/habitaciones', async (req, res) => {
 
     // Recuperar el ID de la última habitación insertada
     const result = await connection.execute(
-      `SELECT ID_HABITACION_SEQ.CURRVAL AS last_id FROM dual`
+      `SELECT FIDE_HABITACION_ULTIMO_ID() AS last_id FROM dual`
     );
     const lastId = result.rows[0][0];
 
@@ -1484,9 +1374,16 @@ app.put('/habitaciones/:id', async (req, res) => {
 
     // Actualizar la habitación en la tabla FIDE_HABITACIONES_TB
     const result = await connection.execute(
-      `UPDATE FIDE_HABITACIONES_TB
-       SET id_hotel = :id_hotel, id_moneda = :id_moneda, numero_habitacion = :numero_habitacion, tipo_habitacion = :tipo_habitacion, precio_por_noche = :precio_por_noche, capacidad_personas = :capacidad_personas
-       WHERE id_habitacion = :id`,
+      `BEGIN
+    FIDE_HABITACIONES_TB_ACTUALIZAR_SP(
+        p_id_habitacion => :id,
+        p_id_hotel => :id_hotel,
+        p_id_moneda => :id_moneda,
+        p_numero_habitacion => :numero_habitacion,
+        p_tipo_habitacion => :tipo_habitacion,
+        p_precio_por_noche => :precio_por_noche,
+        p_capacidad_personas => :capacidad_personas
+    ); END;`,
       { id_hotel, id_moneda, numero_habitacion, tipo_habitacion, precio_por_noche, capacidad_personas, id }
     );
 
@@ -1513,9 +1410,11 @@ app.put('/habitaciones/toggleState/:id', async (req, res) => {
 
     // Actualizar el estado de la habitación en la tabla FIDE_HABITACIONES_TB
     const result = await connection.execute(
-      `UPDATE FIDE_HABITACIONES_TB
-       SET id_estado = (SELECT id_estado FROM FIDE_ESTADOS_TB WHERE nombre_estado = :newState)
-       WHERE id_habitacion = :id`,
+      `BEGIN
+    FIDE_HABITACIONES_TB_ACTUALIZAR_ESTADO_SP(
+        p_id_habitacion => :id,
+        p_new_state => :newState
+    ); END;`,
       { newState, id }
     );
 
@@ -1542,37 +1441,8 @@ app.get('/limpieza_habitaciones', async (req, res) => {
 
     // Consulta para obtener los datos de las limpiezas incluyendo números de habitación y nombres de usuario
     const query = `
-      SELECT 
-        L.id_limpieza, 
-        H.numero_habitacion, 
-        HO.nombre_hotel, 
-        U.nombre AS nombre_usuario, 
-        TO_CHAR(L.fecha_limpieza, 'YYYY-MM-DD') AS fecha_limpieza, 
-        L.comentarios, 
-        E.nombre_estado, 
-        L.creado_por, 
-        L.fecha_creacion, 
-        L.modificado_por, 
-        L.fecha_modificacion, 
-        L.accion
-      FROM 
-        FIDE_LIMPIEZA_HABITACIONES_TB L
-      JOIN 
-        FIDE_HABITACIONES_TB H 
-      ON 
-        L.id_habitacion = H.id_habitacion
-      JOIN 
-        FIDE_HOTELES_TB HO 
-      ON 
-        H.id_hotel = HO.id_hotel
-      JOIN 
-        FIDE_USUARIOS_TB U 
-      ON 
-        L.id_usuario = U.id_usuario
-      JOIN 
-        FIDE_ESTADOS_TB E 
-      ON 
-        L.id_estado = E.id_estado
+      SELECT *
+FROM V_FIDE_LIMPIEZA_DETALLES
     `;
     const result = await connection.execute(query);
 
@@ -1637,7 +1507,7 @@ app.post('/limpieza_habitaciones', async (req, res) => {
 
     // Recuperar el ID de la última limpieza insertada
     const result = await connection.execute(
-      `SELECT ID_LIMPIEZA_SEQ.CURRVAL AS last_id FROM dual`
+      `SELECT FIDE_LIMPIEZA_ULTIMO_ID() AS last_id FROM dual`
     );
     const lastId = result.rows[0][0];
 
@@ -1699,9 +1569,11 @@ app.put('/limpieza_habitaciones/toggleState/:id', async (req, res) => {
 
     // Actualizar el estado de la limpieza en la tabla FIDE_LIMPIEZA_HABITACIONES_TB
     const result = await connection.execute(
-      `UPDATE FIDE_LIMPIEZA_HABITACIONES_TB
-       SET id_estado = (SELECT id_estado FROM FIDE_ESTADOS_TB WHERE nombre_estado = :newState)
-       WHERE id_limpieza = :id`,
+      `BEGIN
+    FIDE_LIMPIEZA_HABITACIONES_TB_ACTUALIZAR_ESTADO_SP(
+        p_id_limpieza => :id,
+        p_new_state => :newState
+    ); END;`,
       { newState, id }
     );
 
@@ -1728,23 +1600,8 @@ app.get('/valoraciones', async (req, res) => {
 
     // Consulta para obtener los datos de las valoraciones incluyendo el estado
     const query = `
-      SELECT 
-        V.id_valoracion, 
-        V.comentario, 
-        V.valoracion, 
-        TO_CHAR(V.timestamp, 'YYYY-MM-DD HH24:MI:SS') AS timestamp, 
-        E.nombre_estado, 
-        V.creado_por, 
-        V.fecha_creacion, 
-        V.modificado_por, 
-        V.fecha_modificacion, 
-        V.accion
-      FROM 
-        FIDE_VALORACION_TB V
-      JOIN 
-        FIDE_ESTADOS_TB E 
-      ON 
-        V.id_estado = E.id_estado
+      SELECT *
+FROM V_FIDE_VALORACIONES_DETALLES
     `;
     const result = await connection.execute(query);
 
@@ -1804,7 +1661,7 @@ app.post('/valoraciones', async (req, res) => {
 
     // Recuperar el ID de la última valoración insertada
     const result = await connection.execute(
-      `SELECT ID_VALORACION_SEQ.CURRVAL AS last_id FROM dual`
+      `SELECT FIDE_VALORACION_ULTIMO_ID() AS last_id FROM dual`
     );
     const lastId = result.rows[0][0];
 
@@ -1863,9 +1720,11 @@ app.put('/valoraciones/toggleState/:id', async (req, res) => {
 
     // Actualizar el estado de la valoración en la tabla FIDE_VALORACION_TB
     const result = await connection.execute(
-      `UPDATE FIDE_VALORACION_TB
-       SET id_estado = (SELECT id_estado FROM FIDE_ESTADOS_TB WHERE nombre_estado = :newState)
-       WHERE id_valoracion = :id`,
+      `BEGIN
+    FIDE_VALORACION_TB_ACTUALIZAR_ESTADO_SP(
+        p_id_valoracion => :id,
+        p_new_state => :newState
+    ); END;`,
       { newState, id }
     );
 
@@ -1892,22 +1751,8 @@ app.get('/categoria_reservas', async (req, res) => {
 
     // Consulta para obtener los datos de las categorías de reservas incluyendo el estado
     const query = `
-      SELECT 
-        C.id_categoria, 
-        C.nombre_categoria, 
-        C.comentarios, 
-        E.nombre_estado, 
-        C.creado_por, 
-        C.fecha_creacion, 
-        C.modificado_por, 
-        C.fecha_modificacion, 
-        C.accion
-      FROM 
-        FIDE_CATEGORIA_RESERVAS_TB C
-      JOIN 
-        FIDE_ESTADOS_TB E 
-      ON 
-        C.id_estado = E.id_estado
+      SELECT *
+FROM V_FIDE_CATEGORIAS_RESERVAS_DETALLES
     `;
     const result = await connection.execute(query);
 
@@ -1950,7 +1795,7 @@ app.post('/categoria_reservas', async (req, res) => {
 
     // Recuperar el ID de la última categoría insertada
     const result = await connection.execute(
-      `SELECT ID_CATEGORIA_SEQ.CURRVAL AS last_id FROM dual`
+      `SELECT FIDE_CATEGORIA_ULTIMO_ID() AS last_id FROM dual`
     );
     const lastId = result.rows[0][0];
 
@@ -1980,9 +1825,12 @@ app.put('/categoria_reservas/:id', async (req, res) => {
 
     // Actualizar la categoría en la tabla FIDE_CATEGORIA_RESERVAS_TB
     const result = await connection.execute(
-      `UPDATE FIDE_CATEGORIA_RESERVAS_TB
-       SET nombre_categoria = :nombre_categoria, comentarios = :comentarios
-       WHERE id_categoria = :id`,
+      `BEGIN
+    FIDE_CATEGORIA_RESERVAS_TB_ACTUALIZAR_SP(
+        p_id_categoria => :id,
+        p_nombre_categoria => :nombre_categoria,
+        p_comentarios => :comentarios
+    ); END;`,
       { nombre_categoria, comentarios, id }
     );
 
@@ -2009,9 +1857,11 @@ app.put('/categoria_reservas/toggleState/:id', async (req, res) => {
 
     // Actualizar el estado de la categoría en la tabla FIDE_CATEGORIA_RESERVAS_TB
     const result = await connection.execute(
-      `UPDATE FIDE_CATEGORIA_RESERVAS_TB
-       SET id_estado = (SELECT id_estado FROM FIDE_ESTADOS_TB WHERE nombre_estado = :newState)
-       WHERE id_categoria = :id`,
+      `BEGIN
+    FIDE_CATEGORIA_RESERVAS_TB_ACTUALIZAR_ESTADO_SP(
+        p_id_categoria => :id,
+        p_new_state => :newState
+    ); END;`,
       { newState, id }
     );
 
@@ -2038,42 +1888,8 @@ app.get('/reservas', async (req, res) => {
 
     // Consulta para obtener los datos de las reservas incluyendo los nombres de los usuarios, hoteles, categorías, habitaciones, valoraciones, monedas y estados
     const query = `
-      SELECT 
-        R.id_reservacion, 
-        U.nombre AS nombre_usuario, 
-        H.nombre_hotel, 
-        C.nombre_categoria, 
-        HA.numero_habitacion, 
-        V.valoracion, 
-        M.nombre_moneda, 
-        E.nombre_estado, 
-        TO_CHAR(R.fecha_inicio, 'YYYY-MM-DD') AS fecha_inicio, 
-        TO_CHAR(R.fecha_cierre, 'YYYY-MM-DD') AS fecha_cierre, 
-        TO_CHAR(R.hora, 'YYYY-MM-DD HH24:MI:SS') AS hora, 
-        R.precio_unitario, 
-        R.nombre, 
-        R.descripcion, 
-        R.creado_por, 
-        TO_CHAR(R.fecha_creacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_creacion, 
-        R.modificado_por, 
-        TO_CHAR(R.fecha_modificacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_modificacion, 
-        R.accion
-      FROM 
-        FIDE_RESERVAS_TB R
-      JOIN 
-        FIDE_USUARIOS_TB U ON R.id_usuario = U.id_usuario
-      JOIN 
-        FIDE_HOTELES_TB H ON R.id_hotel = H.id_hotel
-      JOIN 
-        FIDE_CATEGORIA_RESERVAS_TB C ON R.id_categoria = C.id_categoria
-      JOIN 
-        FIDE_HABITACIONES_TB HA ON R.id_habitacion = HA.id_habitacion
-      JOIN 
-        FIDE_VALORACION_TB V ON R.id_valoracion = V.id_valoracion
-      JOIN 
-        FIDE_MONEDA_TB M ON R.id_moneda = M.id_moneda
-      JOIN 
-        FIDE_ESTADOS_TB E ON R.id_estado = E.id_estado
+      SELECT *
+FROM V_FIDE_RESERVAS_DETALLES
     `;
     const result = await connection.execute(query);
 
@@ -2155,7 +1971,7 @@ app.post('/reservas', async (req, res) => {
 
     // Recuperar el ID de la última reserva insertada
     const result = await connection.execute(
-      `SELECT ID_RESERVACION_SEQ.CURRVAL AS last_id FROM dual`
+      `SELECT FIDE_RESERVACION_ULTIMO_ID() AS last_id FROM dual`
     );
     const lastId = result.rows[0][0];
 
@@ -2185,9 +2001,22 @@ app.put('/reservas/:id', async (req, res) => {
 
     // Actualizar la reserva en la tabla FIDE_RESERVAS_TB
     const result = await connection.execute(
-      `UPDATE FIDE_RESERVAS_TB
-       SET id_usuario = :id_usuario, id_hotel = :id_hotel, id_categoria = :id_categoria, id_habitacion = :id_habitacion, id_valoracion = :id_valoracion, id_moneda = :id_moneda, fecha_inicio = TO_DATE(:fecha_inicio, 'YYYY-MM-DD'), fecha_cierre = TO_DATE(:fecha_cierre, 'YYYY-MM-DD'), hora = TO_TIMESTAMP(:hora, 'YYYY-MM-DD"T"HH24:MI:SS'), precio_unitario = :precio_unitario, nombre = :nombre, descripcion = :descripcion
-       WHERE id_reservacion = :id`,
+      `BEGIN
+    FIDE_RESERVAS_TB_ACTUALIZAR_SP(
+        p_id_reservacion => :id,
+        p_id_usuario => :id_usuario,
+        p_id_hotel => :id_hotel,
+        p_id_categoria => :id_categoria,
+        p_id_habitacion => :id_habitacion,
+        p_id_valoracion => :id_valoracion,
+        p_id_moneda => :id_moneda,
+        p_fecha_inicio => TO_DATE(:fecha_inicio, 'YYYY-MM-DD'),
+        p_fecha_cierre => TO_DATE(:fecha_cierre, 'YYYY-MM-DD'),
+        p_hora => TO_TIMESTAMP(:hora, 'YYYY-MM-DD"T"HH24:MI:SS'),
+        p_precio_unitario => :precio_unitario,
+        p_nombre => :nombre,
+        p_descripcion => :descripcion
+    ); END;`,
       { id_usuario, id_hotel, id_categoria, id_habitacion, id_valoracion, id_moneda, fecha_inicio, fecha_cierre, hora, precio_unitario, nombre, descripcion, id }
     );
 
@@ -2214,9 +2043,11 @@ app.put('/reservas/toggleState/:id', async (req, res) => {
 
     // Actualizar el estado de la reserva en la tabla FIDE_RESERVAS_TB
     const result = await connection.execute(
-      `UPDATE FIDE_RESERVAS_TB
-       SET id_estado = (SELECT id_estado FROM FIDE_ESTADOS_TB WHERE nombre_estado = :newState)
-       WHERE id_reservacion = :id`,
+      `BEGIN
+    FIDE_RESERVAS_TB_ACTUALIZAR_ESTADO_SP(
+        p_id_reservacion => :id,
+        p_new_state => :newState
+    ); END;`,
       { newState, id }
     );
 
@@ -2244,22 +2075,8 @@ app.get('/tipo_promocion', async (req, res) => {
 
     // Consulta para obtener los datos de los tipos de promoción incluyendo el estado
     const query = `
-      SELECT 
-        TP.id_tipo_promocion, 
-        TP.nombre, 
-        TP.descripcion, 
-        E.nombre_estado, 
-        TP.creado_por, 
-        TP.fecha_creacion, 
-        TP.modificado_por, 
-        TP.fecha_modificacion, 
-        TP.accion
-      FROM 
-        FIDE_TIPO_PROMOCION_TB TP
-      JOIN 
-        FIDE_ESTADOS_TB E 
-      ON 
-        TP.id_estado = E.id_estado
+      SELECT *
+FROM V_FIDE_TIPO_PROMOCIONES_DETALLES
     `;
     const result = await connection.execute(query);
 
@@ -2302,7 +2119,7 @@ app.post('/tipo_promocion', async (req, res) => {
 
     // Recuperar el ID del último tipo de promoción insertado
     const result = await connection.execute(
-      `SELECT ID_TIPO_PROMOCION_SEQ.CURRVAL AS last_id FROM dual`
+      `SELECT FIDE_TIPO_PROMOCION_ULTIMO_ID() AS last_id FROM dual`
     );
     const lastId = result.rows[0][0];
 
@@ -2332,9 +2149,12 @@ app.put('/tipo_promocion/:id', async (req, res) => {
 
     // Actualizar el tipo de promoción en la tabla FIDE_TIPO_PROMOCION_TB
     const result = await connection.execute(
-      `UPDATE FIDE_TIPO_PROMOCION_TB
-       SET nombre = :nombre, descripcion = :descripcion
-       WHERE id_tipo_promocion = :id`,
+      `BEGIN
+    FIDE_TIPO_PROMOCION_TB_ACTUALIZAR_SP(
+        p_id_tipo_promocion => :id,
+        p_nombre => :nombre,
+        p_descripcion => :descripcion
+    ); END;`,
       { nombre, descripcion, id }
     );
 
@@ -2361,9 +2181,11 @@ app.put('/tipo_promocion/toggleState/:id', async (req, res) => {
 
     // Actualizar el estado del tipo de promoción en la tabla FIDE_TIPO_PROMOCION_TB
     const result = await connection.execute(
-      `UPDATE FIDE_TIPO_PROMOCION_TB
-       SET id_estado = (SELECT id_estado FROM FIDE_ESTADOS_TB WHERE nombre_estado = :newState)
-       WHERE id_tipo_promocion = :id`,
+      `BEGIN
+    FIDE_TIPO_PROMOCION_TB_ACTUALIZAR_ESTADO_SP(
+        p_id_tipo_promocion => :id,
+        p_new_state => :newState
+    ); END;`,
       { newState, id }
     );
 
@@ -2390,33 +2212,8 @@ app.get('/promociones', async (req, res) => {
 
     // Consulta para obtener los datos de las promociones incluyendo nombres de tipo de promoción, reservaciones, monedas y estados
     const query = `
-      SELECT 
-        P.id_promocion,
-        TP.nombre AS tipo_promocion,
-        R.nombre AS nombre_reservacion,
-        M.nombre_moneda,
-        P.descripcion,
-        P.nombre_promocion,
-        TO_CHAR(P.fecha_inicio, 'YYYY-MM-DD') AS fecha_inicio,
-        TO_CHAR(P.fecha_fin, 'YYYY-MM-DD') AS fecha_fin,
-        P.porcentaje_promocion,
-        P.descuento,
-        E.nombre_estado,
-        P.creado_por,
-        TO_CHAR(P.fecha_creacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_creacion,
-        P.modificado_por,
-        TO_CHAR(P.fecha_modificacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_modificacion,
-        P.accion
-      FROM 
-        FIDE_PROMOCIONES_TB P
-      JOIN 
-        FIDE_TIPO_PROMOCION_TB TP ON P.id_tipo_promocion = TP.id_tipo_promocion
-      JOIN 
-        FIDE_RESERVAS_TB R ON P.id_reservacion = R.id_reservacion
-      JOIN 
-        FIDE_MONEDA_TB M ON P.id_moneda = M.id_moneda
-      JOIN 
-        FIDE_ESTADOS_TB E ON P.id_estado = E.id_estado
+      SELECT *
+FROM V_FIDE_PROMOCIONES_DETALLES
     `;
     const result = await connection.execute(query);
 
@@ -2469,7 +2266,7 @@ app.post('/promociones', async (req, res) => {
 
     // Recuperar el ID de la última promoción insertada
     const result = await connection.execute(
-      `SELECT ID_PROMOCION_SEQ.CURRVAL AS last_id FROM dual`
+      `SELECT FIDE_PROMOCION_ULTIMO_ID() AS last_id FROM dual`
     );
     const lastId = result.rows[0][0];
 
@@ -2499,9 +2296,19 @@ app.put('/promociones/:id', async (req, res) => {
 
     // Actualizar la promoción en la tabla FIDE_PROMOCIONES_TB
     const result = await connection.execute(
-      `UPDATE FIDE_PROMOCIONES_TB
-       SET id_tipo_promocion = :id_tipo_promocion, id_reservacion = :id_reservacion, id_moneda = :id_moneda, descripcion = :descripcion, nombre_promocion = :nombre_promocion, fecha_inicio = TO_DATE(:fecha_inicio, 'YYYY-MM-DD'), fecha_fin = TO_DATE(:fecha_fin, 'YYYY-MM-DD'), porcentaje_promocion = :porcentaje_promocion, descuento = :descuento
-       WHERE id_promocion = :id`,
+      `BEGIN
+    FIDE_PROMOCIONES_TB_ACTUALIZAR_SP(
+        p_id_promocion => :id,
+        p_id_tipo_promocion => :id_tipo_promocion,
+        p_id_reservacion => :id_reservacion,
+        p_id_moneda => :id_moneda,
+        p_descripcion => :descripcion,
+        p_nombre_promocion => :nombre_promocion,
+        p_fecha_inicio => TO_DATE(:fecha_inicio, 'YYYY-MM-DD'),
+        p_fecha_fin => TO_DATE(:fecha_fin, 'YYYY-MM-DD'),
+        p_porcentaje_promocion => :porcentaje_promocion,
+        p_descuento => :descuento
+    ); END;`,
       { id_tipo_promocion, id_reservacion, id_moneda, descripcion, nombre_promocion, fecha_inicio, fecha_fin, porcentaje_promocion, descuento, id }
     );
 
@@ -2528,9 +2335,11 @@ app.put('/promociones/toggleState/:id', async (req, res) => {
 
     // Actualizar el estado de la promoción en la tabla FIDE_PROMOCIONES_TB
     const result = await connection.execute(
-      `UPDATE FIDE_PROMOCIONES_TB
-       SET id_estado = (SELECT id_estado FROM FIDE_ESTADOS_TB WHERE nombre_estado = :newState)
-       WHERE id_promocion = :id`,
+      `BEGIN
+    FIDE_PROMOCIONES_TB_ACTUALIZAR_ESTADO_SP(
+        p_id_promocion => :id,
+        p_new_state => :newState
+    ); END;`,
       { newState, id }
     );
 
@@ -2558,44 +2367,7 @@ app.get('/facturas', async (req, res) => {
 
     // Consulta para obtener los datos de las facturas incluyendo nombres de monedas, usuarios, impuestos, promociones y estados
     const query = `
-      SELECT 
-        F.id_factura,
-        M.nombre_moneda,
-        U.nombre as nombre_usuario,
-        I.nombre_impuesto,
-        P.nombre_promocion,
-        E.nombre_estado,
-        PA.nombre_pais,
-        PR.nombre_provincia,
-        C.nombre_canton,
-        D.nombre_distrito,
-        F.subtotal,
-        F.total,
-        F.creado_por,
-        TO_CHAR(F.fecha_creacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_creacion,
-        F.modificado_por,
-        TO_CHAR(F.fecha_modificacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_modificacion,
-        F.accion
-      FROM 
-        FIDE_FACTURAS_TB F
-      JOIN 
-        FIDE_MONEDA_TB M ON F.id_moneda = M.id_moneda
-      JOIN 
-        FIDE_USUARIOS_TB U ON F.id_usuario = U.id_usuario
-      JOIN 
-        FIDE_IMPUESTOS_TB I ON F.id_impuesto = I.id_impuesto
-      LEFT JOIN 
-        FIDE_PROMOCIONES_TB P ON F.id_promocion = P.id_promocion
-      JOIN 
-        FIDE_ESTADOS_TB E ON F.id_estado = E.id_estado
-      LEFT JOIN 
-        FIDE_PAIS_TB PA ON F.id_pais = PA.id_pais
-      LEFT JOIN 
-        FIDE_PROVINCIA_TB PR ON F.id_provincia = PR.id_provincia
-      LEFT JOIN 
-        FIDE_CANTON_TB C ON F.id_canton = C.id_canton
-      LEFT JOIN 
-        FIDE_DISTRITO_TB D ON F.id_distrito = D.id_distrito
+      SELECT * FROM V_FIDE_FACTURAS_DETALLES
     `;
     const result = await connection.execute(query);
 
@@ -2646,7 +2418,7 @@ app.post('/facturas', async (req, res) => {
 
     // Recuperar el ID de la última factura insertada
     const result = await connection.execute(
-      `SELECT ID_FACTURA_SEQ.CURRVAL AS last_id FROM dual`
+      `SELECT FIDE_FACTURA_ULTIMO_ID() AS last_id FROM dual`
     );
     const lastId = result.rows[0][0];
 
@@ -2900,19 +2672,7 @@ app.get('/tipo_mantenimiento', async (req, res) => {
 
     // Consulta para obtener los datos de los tipos de mantenimiento
     const query = `
-      SELECT 
-        TM.id_tipo_mantenimiento,
-        TM.tipo_mantenimiento,
-        E.nombre_estado,
-        TM.creado_por,
-        TO_CHAR(TM.fecha_creacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_creacion,
-        TM.modificado_por,
-        TO_CHAR(TM.fecha_modificacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_modificacion,
-        TM.accion
-      FROM 
-        FIDE_TIPO_MANTENIMIENTO_TB TM
-      JOIN 
-        FIDE_ESTADOS_TB E ON TM.id_estado = E.id_estado
+      SELECT * FROM V_FIDE_TIPO_MANTENIMIENTO_DETALLES
     `;
     const result = await connection.execute(query);
 
@@ -2979,9 +2739,11 @@ app.put('/tipo_mantenimiento/:id', async (req, res) => {
 
     // Actualizar el tipo de mantenimiento en la tabla FIDE_TIPO_MANTENIMIENTO_TB
     const result = await connection.execute(
-      `UPDATE FIDE_TIPO_MANTENIMIENTO_TB
-       SET tipo_mantenimiento = :tipo_mantenimiento
-       WHERE id_tipo_mantenimiento = :id`,
+      `BEGIN
+    FIDE_TIPO_MANTENIMIENTO_TB_ACTUALIZAR_SP(
+        p_id_tipo_mantenimiento => :id,
+        p_tipo_mantenimiento => :tipo_mantenimiento
+    ); END;`,
       { tipo_mantenimiento, id }
     );
 
@@ -3008,9 +2770,11 @@ app.put('/tipo_mantenimiento/toggleState/:id', async (req, res) => {
 
     // Actualizar el estado del tipo de mantenimiento en la tabla FIDE_TIPO_MANTENIMIENTO_TB
     const result = await connection.execute(
-      `UPDATE FIDE_TIPO_MANTENIMIENTO_TB
-       SET id_estado = (SELECT id_estado FROM FIDE_ESTADOS_TB WHERE nombre_estado = :newState)
-       WHERE id_tipo_mantenimiento = :id`,
+      `BEGIN
+    FIDE_TIPO_MANTENIMIENTO_TB_ACTUALIZAR_ESTADO_SP(
+        p_id_tipo_mantenimiento => :id,
+        p_new_state => :newState
+    ); END;`,
       { newState, id }
     );
 
@@ -3037,27 +2801,7 @@ app.get('/mantenimientos', async (req, res) => {
 
     // Consulta para obtener los datos de los mantenimientos con el formato deseado para las habitaciones
     const query = `
-      SELECT 
-        M.id_mantenimiento,
-        HO.nombre_hotel || ', Habitación ' || H.numero_habitacion AS habitacion_formateada,
-        TM.tipo_mantenimiento,
-        TO_CHAR(M.fecha_mantenimiento, 'YYYY-MM-DD') AS fecha_mantenimiento,
-        E.nombre_estado,
-        M.creado_por,
-        TO_CHAR(M.fecha_creacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_creacion,
-        M.modificado_por,
-        TO_CHAR(M.fecha_modificacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_modificacion,
-        M.accion
-      FROM 
-        FIDE_MANTENIMIENTO_TB M
-      JOIN 
-        FIDE_HABITACIONES_TB H ON M.id_habitacion = H.id_habitacion
-      JOIN 
-        FIDE_HOTELES_TB HO ON H.id_hotel = HO.id_hotel
-      JOIN 
-        FIDE_TIPO_MANTENIMIENTO_TB TM ON M.id_tipo_mantenimiento = TM.id_tipo_mantenimiento
-      JOIN 
-        FIDE_ESTADOS_TB E ON M.id_estado = E.id_estado
+      SELECT * FROM V_FIDE_MANTENIMIENTO_DETALLES
     `;
     const result = await connection.execute(query);
 
@@ -3126,9 +2870,13 @@ app.put('/mantenimientos/:id', async (req, res) => {
 
     // Actualizar el mantenimiento en la tabla FIDE_MANTENIMIENTO_TB
     const result = await connection.execute(
-      `UPDATE FIDE_MANTENIMIENTO_TB
-       SET id_habitacion = :id_habitacion, id_tipo_mantenimiento = :id_tipo_mantenimiento, fecha_mantenimiento = TO_DATE(:fecha_mantenimiento, 'YYYY-MM-DD')
-       WHERE id_mantenimiento = :id`,
+      `BEGIN
+    FIDE_MANTENIMIENTO_TB_ACTUALIZAR_SP(
+        p_id_mantenimiento => :id,
+        p_id_habitacion => :id_habitacion,
+        p_id_tipo_mantenimiento => :id_tipo_mantenimiento,
+        p_fecha_mantenimiento => TO_DATE(:fecha_mantenimiento, 'YYYY-MM-DD')
+    ); END;`,
       { id_habitacion, id_tipo_mantenimiento, fecha_mantenimiento, id }
     );
 
@@ -3155,9 +2903,11 @@ app.put('/mantenimientos/toggleState/:id', async (req, res) => {
 
     // Actualizar el estado del mantenimiento en la tabla FIDE_MANTENIMIENTO_TB
     const result = await connection.execute(
-      `UPDATE FIDE_MANTENIMIENTO_TB
-       SET id_estado = (SELECT id_estado FROM FIDE_ESTADOS_TB WHERE nombre_estado = :newState)
-       WHERE id_mantenimiento = :id`,
+      `BEGIN
+    FIDE_MANTENIMIENTO_TB_ACTUALIZAR_ESTADO_SP(
+        p_id_mantenimiento => :id,
+        p_new_state => :newState
+    ); END;`,
       { newState, id }
     );
 
@@ -3184,24 +2934,7 @@ app.get('/inventario', async (req, res) => {
 
     // Consulta para obtener los datos del inventario
     const query = `
-      SELECT 
-        I.id_inventario,
-        H.numero_habitacion,
-        HO.nombre_hotel,
-        E.nombre_estado,
-        I.creado_por,
-        TO_CHAR(I.fecha_creacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_creacion,
-        I.modificado_por,
-        TO_CHAR(I.fecha_modificacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_modificacion,
-        I.accion
-      FROM 
-        FIDE_INVENTARIO_TB I
-      JOIN 
-        FIDE_HABITACIONES_TB H ON I.id_habitacion = H.id_habitacion
-      JOIN 
-        FIDE_HOTELES_TB HO ON I.id_hotel = HO.id_hotel
-      JOIN 
-        FIDE_ESTADOS_TB E ON I.id_estado = E.id_estado
+      SELECT * FROM V_FIDE_INVENTARIO_DETALLES
     `;
     const result = await connection.execute(query);
 
@@ -3269,9 +3002,12 @@ app.put('/inventario/:id', async (req, res) => {
 
     // Actualizar el inventario en la tabla FIDE_INVENTARIO_TB
     const result = await connection.execute(
-      `UPDATE FIDE_INVENTARIO_TB
-       SET id_habitacion = :id_habitacion, id_hotel = :id_hotel
-       WHERE id_inventario = :id`,
+      `BEGIN
+    FIDE_INVENTARIO_TB_ACTUALIZAR_SP(
+        p_id_inventario => :id,
+        p_id_habitacion => :id_habitacion,
+        p_id_hotel => :id_hotel
+    ); END;`,
       { id_habitacion, id_hotel, id }
     );
 
@@ -3298,9 +3034,11 @@ app.put('/inventario/toggleState/:id', async (req, res) => {
 
     // Actualizar el estado del inventario en la tabla FIDE_INVENTARIO_TB
     const result = await connection.execute(
-      `UPDATE FIDE_INVENTARIO_TB
-       SET id_estado = (SELECT id_estado FROM FIDE_ESTADOS_TB WHERE nombre_estado = :newState)
-       WHERE id_inventario = :id`,
+      `BEGIN
+    FIDE_INVENTARIO_TB_ACTUALIZAR_ESTADO_SP(
+        p_id_inventario => :id,
+        p_new_state => :newState
+    ); END;`,
       { newState, id }
     );
 
@@ -3327,22 +3065,7 @@ app.get('/items', async (req, res) => {
 
     // Consulta para obtener los datos de los ítems
     const query = `
-      SELECT 
-        I.id_item,
-        I.marca,
-        I.modelo,
-        TO_CHAR(I.fecha_compra, 'YYYY-MM-DD') AS fecha_compra,
-        I.descripcion,
-        E.nombre_estado,
-        I.creado_por,
-        TO_CHAR(I.fecha_creacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_creacion,
-        I.modificado_por,
-        TO_CHAR(I.fecha_modificacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_modificacion,
-        I.accion
-      FROM 
-        FIDE_ITEM_TB I
-      JOIN 
-        FIDE_ESTADOS_TB E ON I.id_estado = E.id_estado
+      SELECT * FROM V_FIDE_ITEM_DETALLES
     `;
     const result = await connection.execute(query);
 
@@ -3412,9 +3135,14 @@ app.put('/items/:id', async (req, res) => {
 
     // Actualizar el ítem en la tabla FIDE_ITEM_TB
     const result = await connection.execute(
-      `UPDATE FIDE_ITEM_TB
-       SET marca = :marca, modelo = :modelo, fecha_compra = TO_DATE(:fecha_compra, 'YYYY-MM-DD'), descripcion = :descripcion
-       WHERE id_item = :id`,
+      `BEGIN
+    FIDE_ITEM_TB_ACTUALIZAR_SP(
+        p_id_item => :id,
+        p_marca => :marca,
+        p_modelo => :modelo,
+        p_fecha_compra => TO_DATE(:fecha_compra, 'YYYY-MM-DD'),
+        p_descripcion => :descripcion
+    ); END;`,
       { marca, modelo, fecha_compra, descripcion, id }
     );
 
@@ -3441,9 +3169,11 @@ app.put('/items/toggleState/:id', async (req, res) => {
 
     // Actualizar el estado del ítem en la tabla FIDE_ITEM_TB
     const result = await connection.execute(
-      `UPDATE FIDE_ITEM_TB
-       SET id_estado = (SELECT id_estado FROM FIDE_ESTADOS_TB WHERE nombre_estado = :newState)
-       WHERE id_item = :id`,
+      `BEGIN
+    FIDE_ITEM_TB_ACTUALIZAR_ESTADO_SP(
+        p_id_item => :id,
+        p_new_state => :newState
+    ); END;`,
       { newState, id }
     );
 
@@ -3470,29 +3200,7 @@ app.get('/inventario_item', async (req, res) => {
 
     // Consulta para obtener los datos de los inventario-ítems
     const query = `
-      SELECT 
-        II.id_inventario_item,
-        HO.nombre_hotel || ', Habitación ' || H.numero_habitacion AS nombre_inventario,
-        I.marca || ' ' || I.modelo AS nombre_item,
-        II.cantidad,
-        E.nombre_estado,
-        II.creado_por,
-        TO_CHAR(II.fecha_creacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_creacion,
-        II.modificado_por,
-        TO_CHAR(II.fecha_modificacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_modificacion,
-        II.accion
-      FROM 
-        FIDE_INVENTARIO_ITEM_TB II
-      JOIN 
-        FIDE_INVENTARIO_TB IT ON II.id_inventario = IT.id_inventario
-      JOIN 
-        FIDE_HABITACIONES_TB H ON IT.id_habitacion = H.id_habitacion
-      JOIN 
-        FIDE_HOTELES_TB HO ON IT.id_hotel = HO.id_hotel
-      JOIN 
-        FIDE_ITEM_TB I ON II.id_item = I.id_item
-      JOIN 
-        FIDE_ESTADOS_TB E ON II.id_estado = E.id_estado
+      SELECT * FROM V_FIDE_INVENTARIO_ITEM_DETALLES
     `;
     const result = await connection.execute(query);
 
@@ -3562,9 +3270,13 @@ app.put('/inventario_item/:id', async (req, res) => {
 
     // Actualizar el inventario-ítem en la tabla FIDE_INVENTARIO_ITEM_TB
     const result = await connection.execute(
-      `UPDATE FIDE_INVENTARIO_ITEM_TB
-       SET id_inventario = :id_inventario, id_item = :id_item, cantidad = :cantidad
-       WHERE id_inventario_item = :id`,
+      `BEGIN
+    FIDE_INVENTARIO_ITEM_TB_ACTUALIZAR_SP(
+        p_id_inventario_item => :id,
+        p_id_inventario => :id_inventario,
+        p_id_item => :id_item,
+        p_cantidad => :cantidad
+    ); END;`,
       { id_inventario, id_item, cantidad, id }
     );
 
@@ -3591,9 +3303,11 @@ app.put('/inventario_item/toggleState/:id', async (req, res) => {
 
     // Actualizar el estado del inventario-ítem en la tabla FIDE_INVENTARIO_ITEM_TB
     const result = await connection.execute(
-      `UPDATE FIDE_INVENTARIO_ITEM_TB
-       SET id_estado = (SELECT id_estado FROM FIDE_ESTADOS_TB WHERE nombre_estado = :newState)
-       WHERE id_inventario_item = :id`,
+      `BEGIN
+    FIDE_INVENTARIO_ITEM_TB_ACTUALIZAR_ESTADO_SP(
+        p_id_inventario_item => :id,
+        p_new_state => :newState
+    ); END;`,
       { newState, id }
     );
 
@@ -3620,19 +3334,7 @@ app.get('/marcas', async (req, res) => {
 
     // Consulta para obtener los datos de las marcas
     const query = `
-      SELECT 
-        M.id_marca,
-        M.nombre_marca,
-        E.nombre_estado,
-        M.creado_por,
-        TO_CHAR(M.fecha_creacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_creacion,
-        M.modificado_por,
-        TO_CHAR(M.fecha_modificacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_modificacion,
-        M.accion
-      FROM 
-        FIDE_MARCA_TB M
-      JOIN 
-        FIDE_ESTADOS_TB E ON M.id_estado = E.id_estado
+      SELECT * FROM V_FIDE_MARCA_DETALLES
     `;
     const result = await connection.execute(query);
 
@@ -3699,9 +3401,11 @@ app.put('/marcas/:id', async (req, res) => {
 
     // Actualizar la marca en la tabla FIDE_MARCA_TB
     const result = await connection.execute(
-      `UPDATE FIDE_MARCA_TB
-       SET nombre_marca = :nombre_marca
-       WHERE id_marca = :id`,
+      `BEGIN
+    FIDE_MARCA_TB_ACTUALIZAR_SP(
+        p_id_marca => :id,
+        p_nombre_marca => :nombre_marca
+    ); END;`,
       { nombre_marca, id }
     );
 
@@ -3728,9 +3432,11 @@ app.put('/marcas/toggleState/:id', async (req, res) => {
 
     // Actualizar el estado de la marca en la tabla FIDE_MARCA_TB
     const result = await connection.execute(
-      `UPDATE FIDE_MARCA_TB
-       SET id_estado = (SELECT id_estado FROM FIDE_ESTADOS_TB WHERE nombre_estado = :newState)
-       WHERE id_marca = :id`,
+      `BEGIN
+    FIDE_MARCA_TB_ACTUALIZAR_ESTADO_SP(
+        p_id_marca => :id,
+        p_new_state => :newState
+    ); END;`,
       { newState, id }
     );
 
@@ -3757,22 +3463,7 @@ app.get('/modelos', async (req, res) => {
 
     // Consulta para obtener los datos de los modelos
     const query = `
-      SELECT 
-        MO.id_modelo,
-        MO.nombre_modelo,
-        MA.nombre_marca,
-        E.nombre_estado,
-        MO.creado_por,
-        TO_CHAR(MO.fecha_creacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_creacion,
-        MO.modificado_por,
-        TO_CHAR(MO.fecha_modificacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_modificacion,
-        MO.accion
-      FROM 
-        FIDE_MODELO_TB MO
-      JOIN 
-        FIDE_MARCA_TB MA ON MO.id_marca = MA.id_marca
-      JOIN 
-        FIDE_ESTADOS_TB E ON MO.id_estado = E.id_estado
+      SELECT * FROM V_FIDE_MODELO_DETALLES
     `;
     const result = await connection.execute(query);
 
@@ -3840,9 +3531,12 @@ app.put('/modelos/:id', async (req, res) => {
 
     // Actualizar el modelo en la tabla FIDE_MODELO_TB
     const result = await connection.execute(
-      `UPDATE FIDE_MODELO_TB
-       SET id_marca = :id_marca, nombre_modelo = :nombre_modelo
-       WHERE id_modelo = :id`,
+      `BEGIN
+    FIDE_MODELO_TB_ACTUALIZAR_SP(
+        p_id_modelo => :id,
+        p_id_marca => :id_marca,
+        p_nombre_modelo => :nombre_modelo
+    ); END;`,
       { id_marca, nombre_modelo, id }
     );
 
@@ -3869,9 +3563,11 @@ app.put('/modelos/toggleState/:id', async (req, res) => {
 
     // Actualizar el estado del modelo en la tabla FIDE_MODELO_TB
     const result = await connection.execute(
-      `UPDATE FIDE_MODELO_TB
-       SET id_estado = (SELECT id_estado FROM FIDE_ESTADOS_TB WHERE nombre_estado = :newState)
-       WHERE id_modelo = :id`,
+      `BEGIN
+    FIDE_MODELO_TB_ACTUALIZAR_ESTADO_SP(
+        p_id_modelo => :id,
+        p_new_state => :newState
+    ); END;`,
       { newState, id }
     );
 
